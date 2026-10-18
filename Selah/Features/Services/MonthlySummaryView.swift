@@ -44,6 +44,10 @@ struct MonthlySummaryView: View {
                     message: "Services you record this month will be counted here."
                 )
             } else {
+                HStack {
+                    Spacer()
+                    exportMenu(for: data)
+                }
                 statTiles(data)
                 if !data.sermons.isEmpty { sermonList(data) }
                 if !data.classes.isEmpty { classList(data) }
@@ -52,6 +56,17 @@ struct MonthlySummaryView: View {
             }
         }
         .padding(.horizontal, Theme.Spacing.m)
+    }
+
+    // MARK: Export
+
+    private func exportMenu(for data: MonthlySummary) -> some View {
+        let items = services.map { ServiceExportItem($0) }
+        let baseName = ExportService.monthlyFileName(summary: data, ext: "pdf")
+            .replacingOccurrences(of: ".pdf", with: "")
+        return ExportMenu(title: "Export", baseFileName: baseName) {
+            ExportService.monthlyDocument(summary: data, services: items)
+        }
     }
 
     // MARK: Month switcher

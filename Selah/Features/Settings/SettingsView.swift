@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import UserNotifications
+import UniformTypeIdentifiers
 
 /// Settings and profile, opened from the Today toolbar.
 struct SettingsView: View {
@@ -58,6 +59,14 @@ private struct SettingsForm: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var showReset = false
+    @State private var isBackingUp = false
+    @State private var shareItem: ShareItem?
+    @State private var showImporter = false
+    @State private var pendingBackup: Backup?
+    @State private var showRestoreConfirm = false
+    @State private var noticeTitle = ""
+    @State private var noticeMessage = ""
+    @State private var showNotice = false
 
     private static let reminderOptions = [0, 15, 30, 60, 120]
 
@@ -101,6 +110,28 @@ private struct SettingsForm: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your books, entries, services, notes and meeting days will be deleted from this iPhone. This cannot be undone.")
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+            handleImport(result)
+        }
+        .confirmationDialog(
+            "Replace all data with this backup?",
+            isPresented: $showRestoreConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Replace everything", role: .destructive, action: restorePending)
+            Button("Cancel", role: .cancel) { pendingBackup = nil }
+        } message: {
+            Text(restoreMessage)
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(items: item.items)
+                .presentationDetents([.medium, .large])
+        }
+        .alert(noticeTitle, isPresented: $showNotice) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(noticeMessage)
         }
     }
 
@@ -272,9 +303,29 @@ private struct SettingsForm: View {
 
     private var dataSection: some View {
         Section {
-            comingSoonRow("Export notes", systemImage: "square.and.arrow.up") // Phase 10
-            comingSoonRow("Back up", systemImage: "icloud.and.arrow.up") // Phase 10
-            comingSoonRow("Restore", systemImage: "icloud.and.arrow.down") // Phase 10
+            NavigationLink {
+                MonthlySummaryScreen()
+            } label: {
+                Label("Export a month", systemImage: "square.and.arrow.up")
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+            Button(action: backUp) {
+                HStack {
+                    Label(isBackingUp ? "Preparing backup…" : "Back up", systemImage: "icloud.and.arrow.up")
+                    if isBackingUp {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+                .frame(minHeight: 44, alignment: .leading)
+            }
+            .disabled(isBackingUp)
+            Button {
+                showImporter = true
+            } label: {
+                Label("Restore", systemImage: "icloud.and.arrow.down")
+                    .frame(minHeight: 44, alignment: .leading)
+            }
             Button("Delete all data", role: .destructive) {
                 showReset = true
             }
@@ -282,20 +333,67 @@ private struct SettingsForm: View {
         } header: {
             Text("Data")
         } footer: {
-            Text("Everything stays on this iPhone. Selah has no account and no server.")
+            Text("Everything stays on this iPhone. Selah has no account and no server. Back up before you delete the app or change Apple ID, because deleting the app deletes its data.")
         }
     }
 
-    private func comingSoonRow(_ title: String, systemImage: String) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage)
-            Spacer()
-            Text("Coming soon")
-                .foregroundStyle(.secondary)
+    private var restoreMessage: String {
+        guard let backup = pendingBackup else { return "" }
+        let counts = RestoreCounts(
+            books: backup.plans.count,
+            entries: backup.plans.reduce(0) { $0 + $1.entries.count },
+            services: backup.services.count,
+            notes: backup.personalNotes.count,
+            meetingDays: backup.meetingDays.count
+        )
+        let date = backup.exportedAt.formatted(date: .abbreviated, time: .omitted)
+        return "Backup from \(date): \(counts.summary). Everything on this iPhone is replaced. This cannot be undone."
+    }
+
+    private func notice(_ title: String, _ message: String) {
+        noticeTitle = title
+        noticeMessage = message
+        showNotice = true
+    }
+
+    private func backUp() {
+        isBackingUp = true
+        Task { @MainActor in
+            await Task.yield()
+            do {
+                let url = try BackupService.writeBackupFile(from: modelContext)
+                shareItem = ShareItem(items: [url])
+            } catch {
+                notice("Couldn't back up", "Selah couldn't make the backup file. Please try again.")
+            }
+            isBackingUp = false
         }
-        .frame(minHeight: 44)
-        .foregroundStyle(.secondary)
-        .accessibilityElement(children: .combine)
+    }
+
+    private func handleImport(_ result: Result<URL, Error>) {
+        switch result {
+        case .failure:
+            notice("Couldn't restore", BackupError.cannotRead.localizedDescription)
+        case .success(let url):
+            do {
+                pendingBackup = try BackupService.readBackup(from: url)
+                showRestoreConfirm = true
+            } catch {
+                notice("Couldn't restore", error.localizedDescription)
+            }
+        }
+    }
+
+    private func restorePending() {
+        guard let backup = pendingBackup else { return }
+        pendingBackup = nil
+        do {
+            let counts = try BackupService.restore(backup, into: modelContext)
+            NotificationScheduler.shared.reschedule(context: modelContext)
+            notice("Backup restored", "Restored \(counts.summary).")
+        } catch {
+            notice("Couldn't restore", error.localizedDescription)
+        }
     }
 
     // MARK: About
@@ -353,6 +451,21 @@ private struct SettingsForm: View {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         try? modelContext.save()
         NotificationScheduler.shared.reschedule(context: modelContext)
+    }
+}
+
+/// Opened from Settings > Data > Export a month.
+private struct MonthlySummaryScreen: View {
+    @Query(sort: \Service.date) private var services: [Service]
+
+    var body: some View {
+        ScrollView {
+            MonthlySummaryView(services: services)
+                .padding(.bottom, Theme.Spacing.l)
+        }
+        .background { AppBackground() }
+        .navigationTitle("Export a month")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

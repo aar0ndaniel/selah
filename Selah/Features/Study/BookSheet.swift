@@ -51,6 +51,7 @@ struct BookSheet: View {
                 remindersSection
                 chaptersSection
                 entriesSection
+                exportSection
                 deleteSection
             }
             .scrollContentBackground(.hidden)
@@ -267,6 +268,25 @@ struct BookSheet: View {
         )
         .accessibilityHint("Opens the entry")
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Export
+
+    @ViewBuilder
+    private var exportSection: some View {
+        if !plan.entries.isEmpty {
+            Section {
+                ExportMenu(
+                    title: "Export entries",
+                    baseFileName: ExportService.bookFileName(plan.bookName, ext: "pdf")
+                        .replacingOccurrences(of: ".pdf", with: "")
+                ) {
+                    ExportService.bookDocument(BookExportItem(plan))
+                }
+            } footer: {
+                Text("Share this book's entries as a PDF or plain text.")
+            }
+        }
     }
 
     // MARK: - Delete
