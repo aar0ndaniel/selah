@@ -48,6 +48,30 @@ enum StudyActions {
         in context: ModelContext
     ) -> ReadingPlan? {
         guard let index = BibleBooks.names.firstIndex(of: bookName) else { return nil }
+        let days = length.days(chapters: BibleBooks.chapterCounts[index])
+        return addPlan(
+            bookName: bookName,
+            days: days,
+            startNow: startNow,
+            reminderTime: reminderTime,
+            now: now,
+            in: context
+        )
+    }
+
+    /// Adds a plan with any number of days (clamped to 1...365) and an optional card colour.
+    /// Returns nil when the book already has an active plan or the name is not one of the 66 books.
+    @discardableResult
+    static func addPlan(
+        bookName: String,
+        days: Int,
+        startNow: Bool,
+        tone: NoteColour? = nil,
+        reminderTime: (hour: Int, minute: Int)? = nil,
+        now: Date = Date(),
+        in context: ModelContext
+    ) -> ReadingPlan? {
+        guard let index = BibleBooks.names.firstIndex(of: bookName) else { return nil }
         let existing = (try? context.fetch(FetchDescriptor<ReadingPlan>())) ?? []
         guard !hasActivePlan(book: bookName, in: existing) else { return nil }
 
@@ -56,15 +80,34 @@ enum StudyActions {
             bookName: bookName,
             totalChapters: chapters,
             status: startNow ? .reading : .upNext,
-            plannedDays: length.days(chapters: chapters),
+            plannedDays: clampedDays(days),
             startDate: startNow ? now : nil
         )
+        if let tone { plan.tone = tone }
         context.insert(plan)
         if let reminderTime {
             addReminder(to: plan, hour: reminderTime.hour, minute: reminderTime.minute, in: context)
         }
         NotificationScheduler.shared.reschedule(context: context)
         return plan
+    }
+
+    /// Planned days stay between 1 and 365.
+    static func clampedDays(_ days: Int) -> Int { min(max(days, 1), 365) }
+
+    /// The note written on `day` (any time that day), if there is one.
+    static func entry(on day: Date, in plan: ReadingPlan, calendar: Calendar = .current) -> StudyEntry? {
+        plan.entries
+            .filter { calendar.isDate($0.date, inSameDayAs: day) }
+            .min { $0.createdAt < $1.createdAt }
+    }
+
+    /// First non-empty line of a note, for list rows. Empty when the note has no words.
+    static func firstLine(of note: AttributedString) -> String {
+        String(note.characters)
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
     }
 
     /// Adds a reminder unless the plan already has one at that time.

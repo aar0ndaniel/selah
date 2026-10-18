@@ -31,6 +31,15 @@ private struct AppRoot: View {
     let testContainer: ModelContainer?
 
     var body: some View {
+        root
+            // The asset-catalog global accent wasn't being applied (screens rendered system blue),
+            // so set it explicitly: `.tint` drives controls, `.accentColor` drives `Color.accentColor`.
+            .tint(Theme.accent)
+            .accentColor(Theme.accent)
+    }
+
+    @ViewBuilder
+    private var root: some View {
         if let testContainer {
             RootTabView(forcedScheme: launch.forcedScheme)
                 .modelContainer(testContainer)

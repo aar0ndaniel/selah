@@ -84,6 +84,9 @@ struct Backup: Codable, Sendable, Equatable {
         var chaptersRead: [Int]
         var reminders: [ReminderDTO]
         var entries: [EntryDTO]
+        /// Added in Round 2. Optional, so older backups still decode.
+        var bannerData: Data? = nil
+        var toneRaw: String? = nil
     }
 
     struct ServiceDTO: Codable, Sendable, Equatable {
@@ -310,6 +313,8 @@ enum BackupService {
                 finishedDate: dto.finishedDate,
                 chaptersRead: dto.chaptersRead
             )
+            plan.bannerData = dto.bannerData
+            if let toneRaw = dto.toneRaw { plan.toneRaw = toneRaw }
             context.insert(plan)
             counts.books += 1
 
@@ -479,7 +484,9 @@ enum BackupService {
                 .map { Backup.ReminderDTO(hour: $0.hour, minute: $0.minute, notificationID: $0.notificationID) },
             entries: plan.entries
                 .sorted { $0.date < $1.date }
-                .map(entryDTO)
+                .map(entryDTO),
+            bannerData: plan.bannerData,
+            toneRaw: plan.toneRaw
         )
     }
 

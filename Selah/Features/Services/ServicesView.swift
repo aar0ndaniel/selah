@@ -16,12 +16,21 @@ struct ServicesView: View {
     @Query private var meetingDays: [MeetingDay]
 
     @State private var mode: Mode = .all
+    /// The service pushed on the Services stack (a full page, not a sheet).
     @State private var openService: Service?
-    @State private var editingDay: MeetingDay?
     @State private var showMeetingDays = false
     @State private var serviceToDelete: Service?
 
     private var sortedDays: [MeetingDay] { meetingDays.sorted(by: MeetingDay.scheduleOrder) }
+
+    /// The card shown at the top when today is a meeting day.
+    private var todayPrompt: TodayPrompt? {
+        ServicesLogic.todayPrompt(
+            meetings: meetingDays.map { MeetingSnapshot($0) },
+            services: services.map { ServiceStub(date: $0.date, gatheringName: $0.gatheringName) },
+            on: Date()
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,20 +49,9 @@ struct ServicesView: View {
                         .accessibilityLabel("Meeting days")
                     }
                 }
-        }
-        .sheet(item: $openService) { service in
-            ServiceSheet(service: service)
-        }
-        .sheet(item: $editingDay) { day in
-            NavigationStack {
-                MeetingDayEditor(day: day)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { editingDay = nil }
-                        }
-                    }
-            }
-            .presentationDetents([.medium, .large])
+                .navigationDestination(item: $openService) { service in
+                    ServicePage(service: service)
+                }
         }
         .sheet(isPresented: $showMeetingDays) {
             NavigationStack {
@@ -116,21 +114,60 @@ struct ServicesView: View {
                     favouriteSections
                 }
             }
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            MeetingDayChips(
-                days: sortedDays,
-                onSelect: { editingDay = $0 },
-                onAdd: { showMeetingDays = true }
-            )
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            if let prompt = todayPrompt {
+                todayCard(prompt)
+                    .padding(.horizontal, Theme.Spacing.m)
+            }
             modePicker
                 .padding(.horizontal, Theme.Spacing.m)
                 .sensoryFeedback(.selection, trigger: mode)
+        }
+        .padding(.bottom, Theme.Spacing.xs)
+    }
+
+    // MARK: Today card
+
+    private func todayCard(_ prompt: TodayPrompt) -> some View {
+        let tone = Tone.sage
+        return ToneCard(tone: tone, padding: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    PIconView(.church, filled: true, size: 28, relativeTo: .title3)
+                        .foregroundStyle(tone.ink)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                        Text(prompt.title)
+                            .font(.selahCardTitle)
+                            .foregroundStyle(tone.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(Date().formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                            .font(.subheadline)
+                            .foregroundStyle(tone.inkSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button {
+                    openTodaysService(prompt)
+                } label: {
+                    Text(prompt.buttonTitle)
+                }
+                .buttonStyle(.selahPrimaryFull)
+            }
+        }
+    }
+
+    private func openTodaysService(_ prompt: TodayPrompt) {
+        if let index = prompt.existingServiceIndex, services.indices.contains(index) {
+            openService = services[index]
+        } else {
+            createService(named: prompt.name)
         }
     }
 
@@ -169,6 +206,11 @@ struct ServicesView: View {
             .sorted { $0.start > $1.start }
     }
 
+    /// Row insets that make each row a card with a little air between cards.
+    private var cardRowInsets: EdgeInsets {
+        EdgeInsets(top: 6, leading: Theme.Spacing.m, bottom: 6, trailing: Theme.Spacing.m)
+    }
+
     @ViewBuilder
     private var allSections: some View {
         if services.isEmpty {
@@ -181,56 +223,69 @@ struct ServicesView: View {
                     action: createServiceForToday
                 )
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
         } else {
             ForEach(monthGroups) { group in
                 Section {
                     ForEach(group.services) { service in
                         serviceRow(service)
+                            .listRowInsets(cardRowInsets)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 } header: {
                     Text(group.start.formatted(.dateTime.month(.wide).year()))
+                        .font(.selahHeadline)
+                        .foregroundStyle(.primary)
+                        .textCase(nil)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
         }
     }
 
     private func serviceRow(_ service: Service) -> some View {
-        Button {
+        let name = service.gatheringName.isEmpty ? "Service" : service.gatheringName
+        let tone = ServicesLogic.gatheringTone(name)
+        let hasClass = !service.classLesson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !service.classTeacher.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let isFavourite = service.sermonFavourite || service.classFavourite
+        let sermonTitle = service.sermonTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return Button {
             openService = service
         } label: {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                // At accessibility sizes the name and date stack instead of squeezing each other.
-                let titleLayout = typeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xxs))
-                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs))
-                titleLayout {
-                    Text(service.gatheringName.isEmpty ? "Service" : service.gatheringName)
-                        .font(.headline)
-                    if !typeSize.isAccessibilitySize {
-                        Spacer(minLength: Theme.Spacing.xs)
+            SurfaceCard {
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    DateBadge(date: service.date, tone: tone)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                            Text(sermonTitle.isEmpty ? "No sermon title yet" : sermonTitle)
+                                .font(.selahHeadline)
+                                .foregroundStyle(sermonTitle.isEmpty ? Color.secondary : Color.primary)
+                                .multilineTextAlignment(.leading)
+                            if !service.sermonist.isEmpty {
+                                Text(service.sermonist)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        pills(name: name, tone: tone, hasClass: hasClass)
                     }
-                    Text(service.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                if !service.sermonTitle.isEmpty {
-                    Text(service.sermonTitle)
-                        .font(.body)
-                }
-                if !service.sermonist.isEmpty {
-                    Text(service.sermonist)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if isFavourite {
+                        PIconView(.star, filled: true, size: 20)
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
             }
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(rowLabel(for: service))
+        .accessibilityLabel(rowLabel(for: service, hasClass: hasClass, isFavourite: isFavourite))
         .accessibilityHint("Opens this service")
         .accessibilityAddTraits(.isButton)
         .swipeActions(edge: .trailing) {
@@ -249,11 +304,26 @@ struct ServicesView: View {
         }
     }
 
-    private func rowLabel(for service: Service) -> String {
+    /// Gathering pill, plus "Bible class" when the service has one. Stacks at accessibility sizes.
+    private func pills(name: String, tone: Tone, hasClass: Bool) -> some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
+        return layout {
+            Pill(text: name, tone: tone)
+            if hasClass {
+                Pill(text: "Bible class", icon: .book, tone: .sage)
+            }
+        }
+    }
+
+    private func rowLabel(for service: Service, hasClass: Bool, isFavourite: Bool) -> String {
         var parts = [service.gatheringName.isEmpty ? "Service" : service.gatheringName]
         parts.append(service.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
         if !service.sermonTitle.isEmpty { parts.append(service.sermonTitle) }
         if !service.sermonist.isEmpty { parts.append(service.sermonist) }
+        if hasClass { parts.append("Bible class") }
+        if isFavourite { parts.append("Favourite") }
         return parts.joined(separator: ", ")
     }
 
@@ -273,56 +343,86 @@ struct ServicesView: View {
                     action: { mode = .all }
                 )
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
         } else {
             if !sermons.isEmpty {
-                Section("Sermons") {
+                Section {
                     ForEach(sermons) { service in
                         favouriteRow(
                             service,
                             title: service.sermonTitle.isEmpty ? "Untitled sermon" : service.sermonTitle,
                             detail: service.sermonist
                         )
+                        .listRowInsets(cardRowInsets)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
+                } header: {
+                    favouriteHeader("Sermons")
                 }
             }
             if !classes.isEmpty {
-                Section("Bible classes") {
+                Section {
                     ForEach(classes) { service in
                         favouriteRow(
                             service,
                             title: service.classLesson.isEmpty ? "Untitled lesson" : service.classLesson,
                             detail: service.classTeacher.isEmpty ? "" : "Taught by \(service.classTeacher)"
                         )
+                        .listRowInsets(cardRowInsets)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
+                } header: {
+                    favouriteHeader("Bible classes")
                 }
             }
         }
     }
 
+    private func favouriteHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.selahHeadline)
+            .foregroundStyle(.primary)
+            .textCase(nil)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     private func favouriteRow(_ service: Service, title: String, detail: String) -> some View {
-        Button {
+        let name = service.gatheringName.isEmpty ? "Service" : service.gatheringName
+        let tone = ServicesLogic.gatheringTone(name)
+        let dateLabel = service.date.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
+        return Button {
             openService = service
         } label: {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                Text(title)
-                    .font(.headline)
-                if !detail.isEmpty {
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            SurfaceCard {
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    DateBadge(date: service.date, tone: tone)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                        Text(title)
+                            .font(.selahHeadline)
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+                        if !detail.isEmpty {
+                            Text(detail)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(dateLabel)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    PIconView(.star, filled: true, size: 20)
+                        .foregroundStyle(Color.accentColor)
                 }
-                Text(service.date.formatted(.dateTime.weekday(.wide).day().month(.wide).year()))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel([title, detail, service.date.formatted(.dateTime.weekday(.wide).day().month(.wide).year())]
+        .accessibilityLabel([title, detail, dateLabel, "Favourite"]
             .filter { !$0.isEmpty }
             .joined(separator: ", "))
         .accessibilityHint("Opens this service")
@@ -337,61 +437,41 @@ struct ServicesView: View {
         createServiceForToday()
     }
 
+    /// The + flow: a new service dated today, named after today's meeting when there is one.
     private func createServiceForToday() {
-        let today = Date()
-        let weekday = Calendar.current.component(.weekday, from: today)
+        let weekday = Calendar.current.component(.weekday, from: Date())
         let match = sortedDays.first { $0.weekday == weekday && $0.isActive }
             ?? sortedDays.first { $0.weekday == weekday }
-        let service = Service(date: today, gatheringName: match?.displayName ?? "Service")
+        createService(named: match?.displayName ?? "Service")
+    }
+
+    private func createService(named name: String) {
+        let service = Service(date: Date(), gatheringName: name)
         modelContext.insert(service)
         openService = service
     }
 }
 
-/// Row of chips, one per meeting day. Tap a chip to edit that day.
-private struct MeetingDayChips: View {
-    let days: [MeetingDay]
-    let onSelect: (MeetingDay) -> Void
-    let onAdd: () -> Void
+/// Small calendar-style date badge: month on top, day number below, on the gathering's tone.
+private struct DateBadge: View {
+    let date: Date
+    let tone: Tone
+
+    @ScaledMetric(relativeTo: .body) private var width: CGFloat = 56
 
     var body: some View {
-        ScrollView(.horizontal) {
-            GlassEffectContainer(spacing: Theme.Spacing.xs) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    if days.isEmpty {
-                        Button(action: onAdd) {
-                            PLabel("Add meeting days", icon: .plus, size: 16, textStyle: .subheadline)
-                                .font(.subheadline)
-                                .padding(.horizontal, Theme.Spacing.m)
-                                .frame(minHeight: 44)
-                                .glassEffect(.regular.interactive(), in: .capsule)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        ForEach(days) { day in
-                            Button {
-                                onSelect(day)
-                            } label: {
-                                // "off" is spelled out, not only shown by lighter text.
-                                Text(day.isActive ? day.chipLabel : "\(day.chipLabel) · off")
-                                    .font(.subheadline)
-                                    .foregroundStyle(day.isActive ? .primary : .secondary)
-                                    .padding(.horizontal, Theme.Spacing.m)
-                                    .frame(minHeight: 44)
-                                    .glassEffect(.regular.interactive(), in: .capsule)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(day.displayName), \(day.weekdayName) at \(day.timeLabel)")
-                            .accessibilityValue(day.isActive ? "" : "Off")
-                            .accessibilityHint("Edits this meeting day")
-                        }
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, Theme.Spacing.xxs)
-            }
+        VStack(spacing: 0) {
+            Text(date.formatted(.dateTime.month(.abbreviated)))
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(tone.inkSecondary)
+            Text(date.formatted(.dateTime.day()))
+                .font(.system(.title3, design: .serif, weight: .semibold).monospacedDigit())
+                .foregroundStyle(tone.ink)
         }
-        .scrollIndicators(.hidden)
+        .frame(width: width, height: width)
+        .background(tone.fill, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+        .accessibilityHidden(true)
     }
 }
 

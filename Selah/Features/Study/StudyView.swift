@@ -21,6 +21,11 @@ enum StudySegment: Hashable, CaseIterable {
     }
 }
 
+/// Pushed value for a book page. Holds the model's ID rather than the model, so a deleted book can never be read.
+struct BookRoute: Hashable {
+    let id: PersistentIdentifier
+}
+
 struct StudyView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
@@ -28,7 +33,7 @@ struct StudyView: View {
     @Query(sort: \ReadingPlan.bookName) private var plans: [ReadingPlan]
 
     @State private var segment: StudySegment = .reading
-    @State private var selectedPlan: ReadingPlan?
+    @State private var path: [BookRoute] = []
     @State private var showAddBook = false
     @State private var planToDelete: ReadingPlan?
 
@@ -46,7 +51,7 @@ struct StudyView: View {
     private var doneCount: Int { plans.filter { $0.status == .done }.count }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 LazyVStack(spacing: Theme.Spacing.s) {
                     segmentPicker
@@ -54,9 +59,7 @@ struct StudyView: View {
                         emptyState
                     } else {
                         ForEach(visiblePlans) { plan in
-                            Button {
-                                selectedPlan = plan
-                            } label: {
+                            NavigationLink(value: BookRoute(id: plan.persistentModelID)) {
                                 BookCard(plan: plan)
                             }
                             .buttonStyle(.plain)
@@ -69,13 +72,18 @@ struct StudyView: View {
             .background { AppBackground() }
             .navigationTitle("Study")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: BookRoute.self) { route in
+                if let plan = plans.first(where: { $0.persistentModelID == route.id }) {
+                    BookPage(plan: plan) { planToDelete = $0 }
+                }
+            }
         }
         .sensoryFeedback(.selection, trigger: segment)
         .sensoryFeedback(.success, trigger: doneCount) { old, new in new > old }
-        .sheet(item: $selectedPlan, onDismiss: deletePendingPlan) { plan in
-            BookSheet(plan: plan) { planToDelete = $0 }
-        }
         .sheet(isPresented: $showAddBook) { AddBookSheet() }
+        .onChange(of: path) { _, newPath in
+            if newPath.isEmpty { deletePendingPlan() }
+        }
         .onChange(of: router.pendingAction) { _, action in
             if action == .addBook {
                 showAddBook = true
@@ -91,11 +99,14 @@ struct StudyView: View {
         }
     }
 
-    /// Deleting waits until the book sheet is gone so no view reads a deleted model.
+    /// Deleting waits until the book page has been popped so no view reads a deleted model.
     private func deletePendingPlan() {
         guard let plan = planToDelete else { return }
         planToDelete = nil
-        StudyActions.deletePlan(plan, in: modelContext)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            StudyActions.deletePlan(plan, in: modelContext)
+        }
     }
 
     @ViewBuilder

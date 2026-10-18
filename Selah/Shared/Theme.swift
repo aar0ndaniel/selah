@@ -6,6 +6,9 @@ import UIKit
 ///
 /// The full system (tones with hex values, type scale, buttons, icons) is written up in docs/DESIGN-SYSTEM.md.
 enum Theme {
+    /// The teal accent, read straight from the asset catalog (interactive elements only, never a background).
+    static let accent = Color("AccentColor")
+
     /// 8pt grid.
     enum Spacing {
         static let xxs: CGFloat = 4
@@ -174,6 +177,12 @@ enum NavigationAppearance {
         let bar = UINavigationBar.appearance()
         bar.standardAppearance = appearance
         bar.compactAppearance = appearance
+
+        // UIKit pieces (text view caret/selection, bar buttons, tab bar) use the teal accent too.
+        if let teal = UIColor(named: "AccentColor") {
+            UIView.appearance().tintColor = teal
+            UITabBar.appearance().tintColor = teal
+        }
         // scrollEdgeAppearance is left nil on purpose: UIKit then derives it from `standardAppearance`
         // with the transparent large-title background, keeping the serif title attributes.
     }

@@ -162,7 +162,7 @@ struct Pill: View {
         Button("Skip for now") {}
             .buttonStyle(.selahTertiaryOutlined)
         HStack {
-            Pill(text: "Reading", icon: .bookOpen, tone: .teal)
+            Pill(text: "Reading", icon: .bookOpen, tone: .sky)
             Pill(text: "Done", icon: .check, tone: .sage)
             Pill(text: "5 day streak", icon: .flame, tone: .coral)
         }

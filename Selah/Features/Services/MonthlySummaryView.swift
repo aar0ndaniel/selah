@@ -87,7 +87,7 @@ struct MonthlySummaryView: View {
 
             Spacer()
             Text(monthLabel)
-                .font(.headline)
+                .font(.selahTitle)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -115,23 +115,24 @@ struct MonthlySummaryView: View {
             columns: [GridItem(.adaptive(minimum: 140), spacing: Theme.Spacing.s)],
             spacing: Theme.Spacing.s
         ) {
-            tile(count: summary.serviceCount, singular: "Service", plural: "Services")
-            tile(count: summary.sermonCount, singular: "Sermon", plural: "Sermons")
-            tile(count: summary.classCount, singular: "Bible class", plural: "Bible classes")
-            tile(count: summary.songCount, singular: "Song", plural: "Songs")
+            tile(count: summary.serviceCount, singular: "Service", plural: "Services", tone: .sky)
+            tile(count: summary.sermonCount, singular: "Sermon", plural: "Sermons", tone: .sky)
+            tile(count: summary.classCount, singular: "Bible class", plural: "Bible classes", tone: .sage)
+            tile(count: summary.songCount, singular: "Song", plural: "Songs", tone: .coral)
         }
     }
 
-    private func tile(count: Int, singular: String, plural: String) -> some View {
+    private func tile(count: Int, singular: String, plural: String, tone: Tone) -> some View {
         let label = count == 1 ? singular : plural
-        return SurfaceCard {
+        return ToneCard(tone: tone) {
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text("\(count)")
-                    .font(.title.weight(.semibold))
+                    .font(.selahStat)
+                    .foregroundStyle(tone.ink)
                     .contentTransition(.numericText())
                 Text(label)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(tone.inkSecondary)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -166,13 +167,50 @@ struct MonthlySummaryView: View {
         }
     }
 
+    /// Books quoted most: a title, a tone card and one simple horizontal bar per book.
     private func booksCard(_ summary: MonthlySummary) -> some View {
-        section("Books quoted most") {
-            ForEach(Array(summary.booksQuoted.enumerated()), id: \.offset) { index, item in
-                if index > 0 { Divider() }
-                countRow(title: item.book, count: item.count)
+        let tone = Tone.sky
+        let maxCount = max(summary.booksQuoted.map { $0.count }.max() ?? 1, 1)
+        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text("Books quoted most")
+                .font(.selahCardTitle)
+                .accessibilityAddTraits(.isHeader)
+            ToneCard(tone: tone) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    ForEach(Array(summary.booksQuoted.enumerated()), id: \.offset) { _, item in
+                        bookBar(item, maxCount: maxCount, tone: tone)
+                    }
+                }
             }
         }
+    }
+
+    private func bookBar(_ item: MonthlySummary.BookCount, maxCount: Int, tone: Tone) -> some View {
+        let times = item.count == 1 ? "1 time" : "\(item.count) times"
+        return VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                Text(item.book)
+                    .font(.selahHeadline)
+                    .foregroundStyle(tone.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(times)
+                    .font(.subheadline)
+                    .foregroundStyle(tone.inkSecondary)
+            }
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(tone.ink.opacity(0.15))
+                    Capsule()
+                        .fill(tone.ink)
+                        .frame(width: max(proxy.size.width * CGFloat(item.count) / CGFloat(maxCount), 8))
+                }
+            }
+            .frame(height: 8)
+            .accessibilityHidden(true)
+        }
+        .frame(minHeight: Theme.minTapTarget)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(item.book), \(times)")
     }
 
     private func songsCard(_ summary: MonthlySummary) -> some View {
@@ -195,7 +233,7 @@ struct MonthlySummaryView: View {
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(title)
-                .font(.headline)
+                .font(.selahCardTitle)
                 .accessibilityAddTraits(.isHeader)
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
@@ -208,7 +246,7 @@ struct MonthlySummaryView: View {
     private func itemRow(title: String, detail: String, date: Date) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(title)
-                .font(.body)
+                .font(.selahHeadline)
             if !detail.isEmpty {
                 Text(detail)
                     .font(.subheadline)
