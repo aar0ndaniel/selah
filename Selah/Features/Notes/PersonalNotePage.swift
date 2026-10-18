@@ -86,7 +86,7 @@ struct PersonalNotePage: View {
                 SurfaceCard {
                     HStack(alignment: .top, spacing: Theme.Spacing.s) {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                            Pill(text: verse.reference, icon: .quotes, tone: note.colour.tone)
+                            SelahPill(verse.reference, icon: .quotes, style: .soft(note.colour.tone))
                             if !verse.textSnapshot.isEmpty {
                                 Text(verse.textSnapshot)
                                     .font(.selahVerseCompact)

@@ -1,12 +1,15 @@
 import UIKit
 
-/// The keyboard accessory of the note editor: bold, italic, underline, heading, bulleted list, numbered list, quote,
-/// highlight and comment, and Done.
+/// The keyboard accessory of the note editor, drawn as a floating capsule above the keyboard.
 ///
-/// Plain controls on a plain bar (no custom blur): the keyboard under it already carries the system material.
-/// Every button is 44 x 44pt and has a VoiceOver label. A toggle that is on shows a pale teal capsule behind an
-/// ink-coloured icon and carries the `selected` accessibility trait, so the state is not told by colour alone.
-/// The row of tools scrolls sideways on narrow phones; Done stays fixed at the right.
+/// The accessory itself is a plain, fully transparent `UIView` (not a `UIInputView`, which would draw the grey
+/// keyboard-coloured strip). Inside it a capsule (inset 12pt from the sides, 8pt above the keyboard, 52pt high)
+/// holds the tools in groups with thin dividers: Bold, Italic, Underline | Heading, Quote | Bulleted list,
+/// Numbered list | Highlight and comment. A round Done button is pinned at the trailing end; the tools scroll
+/// sideways on narrow phones. The capsule is a solid `secondarySystemBackground` fill with a soft shadow in light
+/// mode and a hairline in dark mode. Every button is 44 x 44pt with a 20pt icon and a VoiceOver label. A toggle
+/// that is on shows its icon in BrandInk on a BrandFill rounded square, carries the `selected` trait and has the
+/// accessibility value "On", so the state is not told by colour alone.
 @MainActor
 final class FormattingToolbar: UIView {
     enum Action: Int, CaseIterable {
@@ -59,7 +62,19 @@ final class FormattingToolbar: UIView {
         }
     }
 
-    static let barHeight: CGFloat = 52
+    static let capsuleHeight: CGFloat = 52
+    private static let topInset: CGFloat = 6
+    private static let bottomInset: CGFloat = 8
+    private static let sideInset: CGFloat = 12
+    static let barHeight: CGFloat = capsuleHeight + topInset + bottomInset
+
+    /// The tools in the order they appear, split into groups that get a divider between them.
+    static let groups: [[Action]] = [
+        [.bold, .italic, .underline],
+        [.heading, .quote],
+        [.bullet, .numbered],
+        [.highlight]
+    ]
 
     var onAction: ((Action) -> Void)?
     var onDone: (() -> Void)?
@@ -67,15 +82,22 @@ final class FormattingToolbar: UIView {
     private var buttons: [Action: UIButton] = [:]
     private var active: Set<Action> = []
     private var highlightEnabled = false
+    private let capsule = UIView()
     private let scroll = UIScrollView()
     private let stack = UIStackView()
     private let doneButton = UIButton(type: .system)
+    private let doneDivider = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: frame.width, height: Self.barHeight))
         autoresizingMask = [.flexibleWidth]
-        backgroundColor = .systemBackground
+        backgroundColor = .clear
+        isOpaque = false
         build()
+        applyAppearance()
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: FormattingToolbar, _) in
+            view.applyAppearance()
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -84,6 +106,20 @@ final class FormattingToolbar: UIView {
 
     override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: Self.barHeight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        capsule.layer.shadowPath = UIBezierPath(
+            roundedRect: capsule.bounds,
+            cornerRadius: Self.capsuleHeight / 2
+        ).cgPath
+    }
+
+    /// Only the capsule takes touches; the transparent strip around it lets them through.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
     }
 
     // MARK: State
@@ -101,67 +137,88 @@ final class FormattingToolbar: UIView {
     // MARK: Build
 
     private func build() {
-        let separator = UIView()
-        separator.backgroundColor = .separator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(separator)
+        capsule.layer.cornerRadius = Self.capsuleHeight / 2
+        capsule.layer.cornerCurve = .continuous
+        capsule.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(capsule)
 
         var doneConfiguration = UIButton.Configuration.plain()
-        doneConfiguration.title = "Done"
-        doneConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12)
+        doneConfiguration.image = Self.icon(.x)
+        doneConfiguration.cornerStyle = .capsule
+        doneConfiguration.baseForegroundColor = .label
+        doneConfiguration.background.backgroundColor = .tertiarySystemFill
+        doneConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
         doneButton.configuration = doneConfiguration
         doneButton.accessibilityLabel = "Done"
         doneButton.accessibilityHint = "Closes the keyboard."
         doneButton.accessibilityIdentifier = "format-done"
         doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
-        doneButton.setContentHuggingPriority(.required, for: .horizontal)
-        doneButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         doneButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(doneButton)
+        capsule.addSubview(doneButton)
+
+        doneDivider.backgroundColor = .separator
+        doneDivider.isAccessibilityElement = false
+        doneDivider.translatesAutoresizingMaskIntoConstraints = false
+        capsule.addSubview(doneDivider)
 
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(scroll)
+        capsule.addSubview(scroll)
 
         stack.axis = .horizontal
         stack.alignment = .center
-        stack.spacing = 2
+        stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(stack)
 
-        for action in Action.allCases {
-            let button = UIButton(type: .system)
-            button.tag = action.rawValue
-            button.accessibilityLabel = action.label
-            button.accessibilityHint = action.hint
-            button.accessibilityIdentifier = action.identifier
-            button.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                button.widthAnchor.constraint(equalToConstant: 44),
-                button.heightAnchor.constraint(equalToConstant: 44)
-            ])
-            stack.addArrangedSubview(button)
-            buttons[action] = button
-            style(action)
+        for (index, group) in Self.groups.enumerated() {
+            if index > 0 {
+                stack.addArrangedSubview(makeDivider())
+            }
+            let row = UIStackView()
+            row.axis = .horizontal
+            row.alignment = .center
+            row.spacing = 2
+            for action in group {
+                let button = UIButton(type: .system)
+                button.tag = action.rawValue
+                button.accessibilityLabel = action.label
+                button.accessibilityHint = action.hint
+                button.accessibilityIdentifier = action.identifier
+                button.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
+                button.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    button.widthAnchor.constraint(equalToConstant: 44),
+                    button.heightAnchor.constraint(equalToConstant: 44)
+                ])
+                row.addArrangedSubview(button)
+                buttons[action] = button
+                style(action)
+            }
+            stack.addArrangedSubview(row)
         }
 
         NSLayoutConstraint.activate([
-            separator.topAnchor.constraint(equalTo: topAnchor),
-            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 0.5),
+            capsule.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: Self.sideInset),
+            capsule.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -Self.sideInset),
+            capsule.topAnchor.constraint(equalTo: topAnchor, constant: Self.topInset),
+            capsule.heightAnchor.constraint(equalToConstant: Self.capsuleHeight),
 
-            doneButton.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -4),
-            doneButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            doneButton.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -4),
+            doneButton.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
+            doneButton.widthAnchor.constraint(equalToConstant: 44),
             doneButton.heightAnchor.constraint(equalToConstant: 44),
-            doneButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
 
-            scroll.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 4),
-            scroll.trailingAnchor.constraint(equalTo: doneButton.leadingAnchor),
-            scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            doneDivider.trailingAnchor.constraint(equalTo: doneButton.leadingAnchor, constant: -6),
+            doneDivider.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
+            doneDivider.widthAnchor.constraint(equalToConstant: 1),
+            doneDivider.heightAnchor.constraint(equalToConstant: 24),
+
+            scroll.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
+            scroll.trailingAnchor.constraint(equalTo: doneDivider.leadingAnchor, constant: -6),
+            scroll.topAnchor.constraint(equalTo: capsule.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
 
             stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
@@ -171,13 +228,47 @@ final class FormattingToolbar: UIView {
         ])
     }
 
+    private func makeDivider() -> UIView {
+        let divider = UIView()
+        divider.backgroundColor = .separator
+        divider.isAccessibilityElement = false
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            divider.widthAnchor.constraint(equalToConstant: 1),
+            divider.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        return divider
+    }
+
+    /// Soft shadow in light mode, hairline in dark mode (shadows are invisible on dark backgrounds).
+    private func applyAppearance() {
+        let dark = traitCollection.userInterfaceStyle == .dark
+        capsule.backgroundColor = .secondarySystemBackground
+        capsule.layer.shadowColor = UIColor.black.cgColor
+        capsule.layer.shadowOpacity = dark ? 0 : 0.14
+        capsule.layer.shadowRadius = 12
+        capsule.layer.shadowOffset = CGSize(width: 0, height: 4)
+        capsule.layer.borderWidth = dark ? 1 / traitCollection.displayScale : 0
+        capsule.layer.borderColor = UIColor.separator.resolvedColor(with: traitCollection).cgColor
+    }
+
+    /// A template image drawn at exactly 20 x 20pt.
+    private static func icon(_ icon: PIcon) -> UIImage? {
+        guard let source = UIImage(named: icon.assetName()) else { return nil }
+        let size = CGSize(width: 20, height: 20)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            source.draw(in: CGRect(origin: .zero, size: size))
+        }.withRenderingMode(.alwaysTemplate)
+    }
+
     private func style(_ action: Action) {
         guard let button = buttons[action] else { return }
         let selected = active.contains(action)
         var configuration = UIButton.Configuration.plain()
-        configuration.image = UIImage(named: action.icon.assetName())?.withRenderingMode(.alwaysTemplate)
-        configuration.cornerStyle = .capsule
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
+        configuration.image = Self.icon(action.icon)
+        configuration.cornerStyle = .fixed
+        configuration.background.cornerRadius = 12
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
         configuration.baseForegroundColor = selected ? (UIColor(named: "BrandInk") ?? .label) : .label
         configuration.background.backgroundColor = selected
             ? (UIColor(named: "BrandFill") ?? .secondarySystemFill)
@@ -188,6 +279,7 @@ final class FormattingToolbar: UIView {
         var traits: UIAccessibilityTraits = .button
         if selected { traits.insert(.selected) }
         button.accessibilityTraits = traits
+        button.accessibilityValue = selected ? "On" : nil
     }
 
     // MARK: Actions

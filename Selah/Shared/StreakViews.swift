@@ -207,6 +207,8 @@ struct StreakSection: View {
     let week: [WeekDay]
     let today: Date
     var isActive: Bool = true
+    /// Today shows the habit week card instead, so it turns the strip off.
+    var showsWeekStrip: Bool = true
 
     @AppStorage("streak.celebrated.study") private var celebratedStudy = ""
     @AppStorage("streak.celebrated.service") private var celebratedService = ""
@@ -264,8 +266,10 @@ struct StreakSection: View {
                     )
                 }
             }
-            SurfaceCard {
-                WeekStrip(days: week)
+            if showsWeekStrip {
+                SurfaceCard {
+                    WeekStrip(days: week)
+                }
             }
         }
         .onAppear { sync() }

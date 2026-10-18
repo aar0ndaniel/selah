@@ -44,7 +44,7 @@ struct TodayView: View {
 
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 68
-    @ScaledMetric(relativeTo: .body) private var barHeight: CGFloat = 72
+    @State private var heatmapYear = Calendar.current.component(.year, from: Date())
 
     private var profile: UserProfile? { profiles.first }
     private var translation: Translation { profile?.translation ?? .kjv }
@@ -102,13 +102,15 @@ struct TodayView: View {
                         summary: Streaks.summary(input, today: now),
                         week: Streaks.week(input, today: now),
                         today: now,
-                        isActive: streaksAreVisible
+                        isActive: streaksAreVisible,
+                        showsWeekStrip: false
                     )
                     verseCard
                     readingSection(now: now)
+                    habitWeekSection(now: now, input: input)
                     gatheringSection(now: now)
+                    readingHeatmap(now: now, streak: Streaks.summary(input, today: now).study.current)
                     recentNotesSection
-                    weekChartSection(now: now, input: input)
                 }
                 .padding(.horizontal, Theme.Spacing.m)
             }
@@ -517,46 +519,29 @@ struct TodayView: View {
         }
     }
 
-    // MARK: This week
+    // MARK: Habits and heatmap
 
-    private func weekChartSection(now: Date, input: StreakInput) -> some View {
-        let week = Streaks.week(input, today: now)
-        let total = week.reduce(0) { $0 + $1.studyCount }
-        let peak = max(week.map { $0.studyCount }.max() ?? 0, 1)
-        let letters = ["M", "T", "W", "T", "F", "S", "S"]
-        let summary = week.map {
-            "\($0.date.formatted(.dateTime.weekday(.wide))) \($0.studyCount)"
-        }.joined(separator: ", ")
-
-        return VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionTitle("This week")
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    Text(total == 1 ? "1 study so far" : "\(total) studies so far")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack(alignment: .bottom, spacing: Theme.Spacing.xs) {
-                        ForEach(Array(week.enumerated()), id: \.offset) { index, day in
-                            VStack(spacing: Theme.Spacing.xs) {
-                                Text("\(day.studyCount)")
-                                    .font(.selahStatSmall)
-                                    .foregroundStyle(day.studyCount > 0 ? Theme.brandInk : Color.secondary)
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(Theme.brandInk.opacity(day.studyCount == 0 ? 0.15 : (day.isToday ? 1 : 0.55)))
-                                    .frame(height: max(barHeight * CGFloat(day.studyCount) / CGFloat(peak), 6))
-                                Text(letters[index % letters.count])
-                                    .font(.footnote.weight(day.isToday ? .bold : .regular))
-                                    .foregroundStyle(day.isToday ? Color.primary : Color.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                    }
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Studies this week")
-                .accessibilityValue(summary)
-            }
+    private func habitWeekSection(now: Date, input: StreakInput) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            sectionTitle("Your week")
+            HabitWeekSection(input: input, today: now)
         }
+    }
+
+    private func readingHeatmap(now: Date, streak: Int) -> some View {
+        ActivityHeatmapCard(
+            title: "Reading",
+            subtitle: "Read a little, even on busy days",
+            icon: .bookOpen,
+            dates: entries.map { $0.date },
+            year: $heatmapYear,
+            unitSingular: "note",
+            unitPlural: "notes",
+            streak: streak,
+            loggedToday: entries.contains { Calendar.current.isDate($0.date, inSameDayAs: now) },
+            onLogToday: { router.pendingAction = .writeTodayEntry },
+            today: now
+        )
     }
 
     private func sectionTitle(_ title: String) -> some View {

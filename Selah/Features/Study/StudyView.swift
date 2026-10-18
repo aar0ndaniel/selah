@@ -21,6 +21,13 @@ enum StudySegment: Hashable, CaseIterable {
     }
 }
 
+/// The full-screen note page opened by the heatmap's "Log today" button.
+private struct LogCover: Identifiable {
+    let plan: ReadingPlan
+    let entry: StudyEntry?
+    var id: PersistentIdentifier { plan.persistentModelID }
+}
+
 /// Pushed value for a book page. Holds the model's ID rather than the model, so a deleted book can never be read.
 struct BookRoute: Hashable {
     let id: PersistentIdentifier
@@ -36,6 +43,8 @@ struct StudyView: View {
     @State private var path: [BookRoute] = []
     @State private var showAddBook = false
     @State private var planToDelete: ReadingPlan?
+    @State private var heatmapYear = Calendar.current.component(.year, from: Date())
+    @State private var logCover: LogCover?
 
     private func plans(in segment: StudySegment) -> [ReadingPlan] {
         let matching = plans.filter { $0.status == segment.status }
@@ -55,6 +64,9 @@ struct StudyView: View {
             ScrollView {
                 LazyVStack(spacing: Theme.Spacing.s) {
                     segmentPicker
+                    if segment == .reading && !visiblePlans.isEmpty {
+                        readingHeatmap
+                    }
                     if visiblePlans.isEmpty {
                         emptyState
                     } else {
@@ -81,6 +93,9 @@ struct StudyView: View {
         .sensoryFeedback(.selection, trigger: segment)
         .sensoryFeedback(.success, trigger: doneCount) { old, new in new > old }
         .sheet(isPresented: $showAddBook) { AddBookSheet() }
+        .fullScreenCover(item: $logCover) { cover in
+            EntrySheet(plan: cover.plan, entry: cover.entry)
+        }
         .onChange(of: path) { _, newPath in
             if newPath.isEmpty { deletePendingPlan() }
         }
@@ -107,6 +122,39 @@ struct StudyView: View {
             try? await Task.sleep(for: .milliseconds(600))
             StudyActions.deletePlan(plan, in: modelContext)
         }
+    }
+
+    // MARK: Heatmap
+
+    private var allEntryDates: [Date] {
+        plans.flatMap { $0.entries.map { $0.date } }
+    }
+
+    private var readingHeatmap: some View {
+        let dates = allEntryDates
+        let now = Date()
+        return ActivityHeatmapCard(
+            title: "Reading",
+            subtitle: "Read a little, even on busy days",
+            icon: .bookOpen,
+            dates: dates,
+            year: $heatmapYear,
+            unitSingular: "note",
+            unitPlural: "notes",
+            streak: ActivityCalendar.studyStreak(dates: dates, today: now),
+            loggedToday: dates.contains { Calendar.current.isDate($0, inSameDayAs: now) },
+            onLogToday: logToday,
+            today: now
+        )
+    }
+
+    /// Opens today's note for the first Reading book (creating it as a new note if there is none yet).
+    private func logToday() {
+        guard let plan = plans.first(where: { $0.status == .reading }) else {
+            showAddBook = true
+            return
+        }
+        logCover = LogCover(plan: plan, entry: StudyActions.entry(on: Date(), in: plan))
     }
 
     @ViewBuilder
