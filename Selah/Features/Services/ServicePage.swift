@@ -21,6 +21,8 @@ struct ServicePage: View {
     @State private var sermonOpen: Bool
     @State private var classOpen: Bool
     @State private var songsOpen = true
+    @FocusState private var focus: ServiceField?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let otherTag = "__other__"
 
@@ -84,36 +86,46 @@ struct ServicePage: View {
     }
 
     var body: some View {
-        List {
-            headerSection
-            sermonSection
-            classSection
-            songsSection
-        }
-        .listStyle(.insetGrouped)
-        .scrollDismissesKeyboard(.interactively)
-        .navigationTitle("Service")
-        .navigationBarTitleDisplayMode(.inline)
-        .hidesPlusButton()
-        .toolbar {
-            if sortedSongs.count > 1 {
-                ToolbarItem(placement: .topBarTrailing) { EditButton() }
+        ScrollViewReader { proxy in
+            List {
+                headerSection
+                sermonSection
+                classSection
+                songsSection(proxy: proxy)
             }
-        }
-        // Pushed in the same stack rather than shown as a sheet.
-        .navigationDestination(isPresented: pickerIsPresented) {
-            VersePicker(translation: translation, embedded: true) { ref in
-                addVerse(ref)
+            .listStyle(.insetGrouped)
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Service")
+            .navigationBarTitleDisplayMode(.inline)
+            .hidesPlusButton()
+            .toolbar {
+                if sortedSongs.count > 1 {
+                    ToolbarItem(placement: .topBarTrailing) { EditButton() }
+                }
+                if focus != nil {
+                    // The number pad has no return key, so every field gets a way to close the keyboard.
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { focus = nil }
+                            .accessibilityIdentifier("keyboard-done")
+                    }
+                }
             }
-        }
-        .sheet(isPresented: $showDatePicker) { datePickerSheet }
-        .sensoryFeedback(.impact(weight: .light), trigger: service.sermonFavourite)
-        .sensoryFeedback(.impact(weight: .light), trigger: service.classFavourite)
-        .onAppear {
-            guard !didSetUp else { return }
-            didSetUp = true
-            let name = service.gatheringName
-            isOther = !name.isEmpty && !gatheringNames.contains(name)
+            // Pushed in the same stack rather than shown as a sheet.
+            .navigationDestination(isPresented: pickerIsPresented) {
+                VersePicker(translation: translation, embedded: true) { ref in
+                    addVerse(ref)
+                }
+            }
+            .sheet(isPresented: $showDatePicker) { datePickerSheet }
+            .sensoryFeedback(.impact(weight: .light), trigger: service.sermonFavourite)
+            .sensoryFeedback(.impact(weight: .light), trigger: service.classFavourite)
+            .onAppear {
+                guard !didSetUp else { return }
+                didSetUp = true
+                let name = service.gatheringName
+                isOther = !name.isEmpty && !gatheringNames.contains(name)
+            }
         }
     }
 
@@ -156,8 +168,15 @@ struct ServicePage: View {
             .accessibilityHint("Changes the type of gathering")
 
             if isOther {
-                TextField("Gathering name", text: $service.gatheringName)
-                    .textInputAutocapitalization(.sentences)
+                LabeledField(
+                    label: "Gathering name",
+                    placeholder: "e.g. Midweek service",
+                    text: $service.gatheringName,
+                    field: .gathering,
+                    focus: $focus,
+                    capitalization: .sentences,
+                    identifier: "field-gathering-name"
+                )
             }
         }
     }
@@ -188,14 +207,23 @@ struct ServicePage: View {
     private var sermonSection: some View {
         Section {
             DisclosureGroup(isExpanded: $sermonOpen) {
-                TextField("Title", text: $service.sermonTitle, axis: .vertical)
-                    .textInputAutocapitalization(.words)
-                    .frame(minHeight: Theme.minTapTarget)
-                    .accessibilityLabel("Sermon title")
-                TextField("Sermonist", text: $service.sermonist)
-                    .textInputAutocapitalization(.words)
-                    .frame(minHeight: Theme.minTapTarget)
-                    .accessibilityLabel("Sermonist")
+                LabeledField(
+                    label: "Title",
+                    placeholder: "e.g. Grace that keeps",
+                    text: $service.sermonTitle,
+                    field: .sermonTitle,
+                    focus: $focus,
+                    axis: .vertical,
+                    identifier: "field-sermon-title"
+                )
+                LabeledField(
+                    label: "Sermonist",
+                    placeholder: "e.g. Pastor Mensah",
+                    text: $service.sermonist,
+                    field: .sermonist,
+                    focus: $focus,
+                    identifier: "field-sermonist"
+                )
                 verseRows(for: .sermon)
                 RichNoteEditor(
                     text: $service.sermonNote,
@@ -208,6 +236,9 @@ struct ServicePage: View {
             } label: {
                 disclosureLabel(
                     title: "Sermon",
+                    isExpanded: $sermonOpen,
+                    identifier: "section-sermon",
+                    favouriteIdentifier: "favourite-sermon",
                     isFavourite: service.sermonFavourite,
                     favouriteLabel: "Favourite sermon",
                     toggleFavourite: { service.sermonFavourite.toggle() }
@@ -219,14 +250,23 @@ struct ServicePage: View {
     private var classSection: some View {
         Section {
             DisclosureGroup(isExpanded: $classOpen) {
-                TextField("Lesson", text: $service.classLesson, axis: .vertical)
-                    .textInputAutocapitalization(.words)
-                    .frame(minHeight: Theme.minTapTarget)
-                    .accessibilityLabel("Lesson")
-                TextField("Taught by", text: $service.classTeacher)
-                    .textInputAutocapitalization(.words)
-                    .frame(minHeight: Theme.minTapTarget)
-                    .accessibilityLabel("Taught by")
+                LabeledField(
+                    label: "Lesson",
+                    placeholder: "e.g. Walking in the Spirit",
+                    text: $service.classLesson,
+                    field: .classLesson,
+                    focus: $focus,
+                    axis: .vertical,
+                    identifier: "field-class-lesson"
+                )
+                LabeledField(
+                    label: "Taught by",
+                    placeholder: "e.g. Deacon Owusu",
+                    text: $service.classTeacher,
+                    field: .classTeacher,
+                    focus: $focus,
+                    identifier: "field-class-teacher"
+                )
                 verseRows(for: .bibleClass)
                 RichNoteEditor(
                     text: $service.classNote,
@@ -239,6 +279,9 @@ struct ServicePage: View {
             } label: {
                 disclosureLabel(
                     title: "Bible class",
+                    isExpanded: $classOpen,
+                    identifier: "section-class",
+                    favouriteIdentifier: "favourite-class",
                     isFavourite: service.classFavourite,
                     favouriteLabel: "Favourite Bible class",
                     toggleFavourite: { service.classFavourite.toggle() }
@@ -250,15 +293,15 @@ struct ServicePage: View {
     /// Disclosure row title with an icon-only favourite star beside the system chevron.
     private func disclosureLabel(
         title: String,
+        isExpanded: Binding<Bool>,
+        identifier: String,
+        favouriteIdentifier: String,
         isFavourite: Bool,
         favouriteLabel: String,
         toggleFavourite: @escaping () -> Void
     ) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
-            Text(title)
-                .font(.selahCardTitle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
+            toggleLabel(title: title, isExpanded: isExpanded, identifier: identifier)
             Button(action: toggleFavourite) {
                 PIconView(.star, filled: isFavourite, size: 22)
                     .foregroundStyle(Color.accentColor)
@@ -266,10 +309,31 @@ struct ServicePage: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
+            .accessibilityIdentifier(favouriteIdentifier)
             .accessibilityLabel(favouriteLabel)
             .accessibilityValue(isFavourite ? "On" : "Off")
             .accessibilityAddTraits(isFavourite ? .isSelected : [])
         }
+    }
+
+    /// The title area of a disclosure row. It fills the row and toggles expansion itself, so tapping anywhere
+    /// except the star opens or closes the section (the system label tap alone proved unreliable).
+    private func toggleLabel(title: String, isExpanded: Binding<Bool>, identifier: String) -> some View {
+        Text(title)
+            .font(.selahCardTitle)
+            .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if reduceMotion {
+                    isExpanded.wrappedValue.toggle()
+                } else {
+                    withAnimation(.snappy) { isExpanded.wrappedValue.toggle() }
+                }
+            }
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
+            .accessibilityHint("Shows or hides this section")
     }
 
     // MARK: Verses
@@ -331,7 +395,7 @@ struct ServicePage: View {
 
     // MARK: Songs
 
-    private var songsSection: some View {
+    private func songsSection(proxy: ScrollViewProxy) -> some View {
         Section {
             DisclosureGroup(isExpanded: $songsOpen) {
                 let songs = sortedSongs
@@ -339,6 +403,7 @@ struct ServicePage: View {
                     SongRow(
                         song: song,
                         position: index + 1,
+                        focus: $focus,
                         canMoveUp: ServicesLogic.movedIndex(index, by: -1, count: songs.count) != nil,
                         canMoveDown: ServicesLogic.movedIndex(index, by: 1, count: songs.count) != nil,
                         onMove: { step in moveSong(at: index, by: step) },
@@ -346,24 +411,35 @@ struct ServicePage: View {
                     )
                 }
                 .onMove(perform: reorderSongs)
-                Button(action: addSong) {
+                Button { addSong(proxy: proxy) } label: {
                     PLabel("Add song", icon: .musicNotes, size: 18)
                         .frame(minHeight: Theme.minTapTarget, alignment: .leading)
                 }
+                .accessibilityIdentifier("add-song")
             } label: {
-                Text("Songs")
-                    .font(.selahCardTitle)
-                    .frame(minHeight: Theme.minTapTarget, alignment: .leading)
-                    .accessibilityAddTraits(.isHeader)
+                toggleLabel(title: "Songs", isExpanded: $songsOpen, identifier: "section-songs")
             }
         }
     }
 
-    private func addSong() {
+    private func addSong(proxy: ScrollViewProxy) {
         let next = (service.songs.map { $0.order }.max() ?? -1) + 1
         let song = Song(order: next)
         modelContext.insert(song)
         song.service = service
+        // Save now so the row id is the permanent one; a temporary id would change on autosave and drop the focus.
+        try? modelContext.save()
+        let id = song.persistentModelID
+        Task { @MainActor in
+            // Let the List lay out the new row before scrolling to it.
+            try? await Task.sleep(for: .milliseconds(200))
+            if reduceMotion {
+                proxy.scrollTo(id, anchor: .center)
+            } else {
+                withAnimation { proxy.scrollTo(id, anchor: .center) }
+            }
+            focus = .hymn(id)
+        }
     }
 
     private func deleteSong(at index: Int) {
@@ -395,6 +471,46 @@ struct ServicePage: View {
     }
 }
 
+// MARK: - Fields
+
+/// Which text field has focus on the service page.
+enum ServiceField: Hashable {
+    case gathering, sermonTitle, sermonist, classLesson, classTeacher
+    case hymn(PersistentIdentifier)
+    case songTitle(PersistentIdentifier)
+}
+
+/// A text field with a small label above it that stays when the field is filled; the placeholder is an example.
+private struct LabeledField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    let field: ServiceField
+    var focus: FocusState<ServiceField?>.Binding
+    var axis: Axis = .horizontal
+    var keyboard: UIKeyboardType = .default
+    var capitalization: TextInputAutocapitalization = .words
+    let identifier: String
+    var accessibilityLabel: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+            Text(label)
+                .font(.selahLabelSmall)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField(placeholder, text: $text, axis: axis)
+                .focused(focus, equals: field)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(capitalization)
+                .accessibilityLabel(accessibilityLabel ?? label)
+                .accessibilityIdentifier(identifier)
+        }
+        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+        .padding(.vertical, Theme.Spacing.xxs)
+    }
+}
+
 // MARK: - Song row
 
 /// One song row: hymn number above, title below, so typing never hides words. Swipe to delete;
@@ -402,6 +518,7 @@ struct ServicePage: View {
 private struct SongRow: View {
     @Bindable var song: Song
     let position: Int
+    var focus: FocusState<ServiceField?>.Binding
     let canMoveUp: Bool
     let canMoveDown: Bool
     let onMove: (Int) -> Void
@@ -409,16 +526,26 @@ private struct SongRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TextField("Hymn number", text: $song.hymnNumber)
-                .keyboardType(.numberPad)
-                .font(.selahLabel)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-                .accessibilityLabel("Song \(position) hymn number")
-            TextField("Song title", text: $song.title)
-                .textInputAutocapitalization(.words)
-                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-                .accessibilityLabel("Song \(position) title")
+            LabeledField(
+                label: "Hymn number",
+                placeholder: "e.g. 212",
+                text: $song.hymnNumber,
+                field: .hymn(song.persistentModelID),
+                focus: focus,
+                keyboard: .numberPad,
+                capitalization: .never,
+                identifier: "field-hymn-number",
+                accessibilityLabel: "Hymn number, song \(position)"
+            )
+            LabeledField(
+                label: "Song title",
+                placeholder: "e.g. Great is thy faithfulness",
+                text: $song.title,
+                field: .songTitle(song.persistentModelID),
+                focus: focus,
+                identifier: "field-song-title",
+                accessibilityLabel: "Song title, song \(position)"
+            )
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive, action: onDelete) {

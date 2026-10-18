@@ -37,7 +37,8 @@ struct VersePicker: View {
 
     var body: some View {
         if embedded {
-            picker
+            // Pushed as a full page (service, entry, personal note): no floating + on top of it.
+            picker.hidesPlusButton()
         } else {
             NavigationStack {
                 picker

@@ -44,8 +44,9 @@ final class ServiceFlowShots: XCTestCase {
         snap(app, "s\(prefix)2-service-page-\(mode)")
 
         // 3. Fill in the sermon.
-        type(into: first([app.textFields["Title"], app.textViews["Title"]]), "Grace that keeps")
-        type(into: first([app.textFields["Sermonist"]]), "Pastor Mensah\n")
+        type(into: first([app.textFields["field-sermon-title"], app.textViews["field-sermon-title"],
+                          app.textFields["Title"], app.textViews["Title"]]), "Grace that keeps")
+        type(into: first([app.textFields["field-sermonist"], app.textFields["Sermonist"]]), "Pastor Mensah\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)3-sermon-filled-\(mode)")
 
@@ -68,20 +69,28 @@ final class ServiceFlowShots: XCTestCase {
         // 5. Open the Bible class section and fill it in.
         app.swipeUp()
         pause()
-        tap(first([app.buttons["Bible class"], app.staticTexts["Bible class"]]))
-        pause()
-        type(into: first([app.textFields["Lesson"], app.textViews["Lesson"]]), "Walking in the Spirit")
-        type(into: first([app.textFields["Taught by"]]), "Deacon Owusu\n")
+        // A new service opens Bible class already; only tap the header if the fields are not showing.
+        let lessonField = first([app.textFields["field-class-lesson"], app.textViews["field-class-lesson"]], timeout: 1)
+        if lessonField == nil {
+            tap(first([app.buttons["section-class"], app.staticTexts["section-class"],
+                       app.buttons["Bible class"], app.staticTexts["Bible class"]]))
+            pause()
+        }
+        type(into: first([app.textFields["field-class-lesson"], app.textViews["field-class-lesson"],
+                          app.textFields["Lesson"], app.textViews["Lesson"]]), "Walking in the Spirit")
+        type(into: first([app.textFields["field-class-teacher"], app.textFields["Taught by"]]), "Deacon Owusu\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)6-bible-class-\(mode)")
 
         // 6. Songs.
         app.swipeUp()
         pause()
-        tap(first([app.buttons["Add song"]]))
-        pause()
-        type(into: first([app.textFields["Hymn number"]]), "212")
-        type(into: first([app.textFields["Song title"]]), "Great is thy faithfulness\n")
+        tap(first([app.buttons["add-song"], app.buttons["Add song"]]))
+        pause(1.5)
+        // The app focuses the new song's hymn number field; type into it (tapping first is harmless).
+        type(into: first([app.textFields["field-hymn-number"], app.textFields["Hymn number"]]), "212")
+        dismissKeyboard(app)
+        type(into: first([app.textFields["field-song-title"], app.textFields["Song title"]]), "Great is thy faithfulness\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)7-songs-\(mode)")
     }
@@ -112,7 +121,9 @@ final class ServiceFlowShots: XCTestCase {
     @MainActor
     private func dismissKeyboard(_ app: XCUIApplication) {
         if app.keyboards.firstMatch.exists {
-            if app.toolbars.buttons["Done"].exists {
+            if app.buttons["keyboard-done"].exists && app.buttons["keyboard-done"].isHittable {
+                app.buttons["keyboard-done"].tap()
+            } else if app.toolbars.buttons["Done"].exists {
                 app.toolbars.buttons["Done"].tap()
             } else if app.buttons["format-done"].exists {
                 app.buttons["format-done"].tap()
