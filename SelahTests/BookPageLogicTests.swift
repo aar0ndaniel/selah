@@ -64,7 +64,7 @@ struct BookPageLogicTests {
 
     @Test func backupKeepsBannerAndToneAndOldBackupsStillRestore() throws {
         let context = try makeContext()
-        let plan = try #require(StudyActions.addPlan(bookName: "Ruth", days: 4, startNow: true, tone: .coral, in: context))
+        let plan = try #require(StudyActions.addPlan(bookName: "Ruth", days: 4, startNow: true, tone: .rose, in: context))
         plan.bannerData = Data([0xFF, 0xD8, 0xFF, 0xD9])
 
         let backup = try BackupService.makeBackup(from: context)
@@ -72,7 +72,7 @@ struct BookPageLogicTests {
         _ = try BackupService.restore(try BackupService.decode(BackupService.encode(backup)), into: restored)
         let plans = try restored.fetch(FetchDescriptor<ReadingPlan>())
         #expect(plans.count == 1)
-        #expect(plans.first?.tone == .coral)
+        #expect(plans.first?.tone == .rose)
         #expect(plans.first?.bannerData == Data([0xFF, 0xD8, 0xFF, 0xD9]))
 
         // A Round 1 plan has neither field.
