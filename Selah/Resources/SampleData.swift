@@ -182,7 +182,7 @@ enum SampleData {
         )
         context.insert(s1)
         let s1v = verse("Proverbs", 3, 5, 6,
-            "Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
+            "Trust in the Lord with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
             part: .sermon)
         context.insert(s1v)
         s1v.service = s1
@@ -258,7 +258,7 @@ enum SampleData {
         )
         context.insert(s5)
         let s5a = verse("Lamentations", 3, 22, 23,
-            "It is of the LORD'S mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.",
+            "It is of the Lord’s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.",
             part: .sermon)
         let s5b = verse("1 John", 1, 9, 9,
             "If we confess our sins, he is faithful and just to forgive us our sins, and to cleanse us from all unrighteousness.",
@@ -304,7 +304,7 @@ enum SampleData {
             updatedAt: daysAgo(8)
         )
         context.insert(n4)
-        let n4v = verse("Psalm", 46, 1, 1, "God is our refuge and strength, a very present help in trouble.")
+        let n4v = verse("Psalms", 46, 1, 1, "God is our refuge and strength, a very present help in trouble.")
         context.insert(n4v)
         n4v.personalNote = n4
 

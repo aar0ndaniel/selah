@@ -31,6 +31,7 @@ jobs:
         run: |
           mkdir -p .build/Payload
           cp -r .build/DeviceData/Build/Products/Release-iphoneos/Selah.app .build/Payload/
+          test -f .build/Payload/Selah.app/bible.sqlite || { echo "::error::bible.sqlite missing from Selah.app"; exit 1; }
           cd .build
           zip -qr Selah.ipa Payload
           ls -lh Selah.ipa
