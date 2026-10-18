@@ -51,7 +51,6 @@ private struct SettingsForm: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     /// Minutes after midnight. New books and new meeting days start from these (see `ReminderDefaults`).
     @AppStorage(ReminderDefaults.readingKey) private var defaultReadingMinutes = ReminderDefaults.fallbackReadingMinutes
@@ -174,9 +173,9 @@ private struct SettingsForm: View {
             NavigationLink {
                 MeetingDaysView()
             } label: {
-                PLabel("Meeting days", icon: .calendarBlank)
-                    .frame(minHeight: 44, alignment: .leading)
+                TileRow(title: "Meeting days", icon: .calendarBlank, tone: .brand, showsChevron: true)
             }
+            .navigationLinkIndicatorVisibility(.hidden)
         } footer: {
             Text("The days your congregation meets. Today shows the next one.")
         }
@@ -189,9 +188,9 @@ private struct SettingsForm: View {
             NavigationLink {
                 QuietTimeSetupView()
             } label: {
-                PLabel("Quiet time", icon: .moon)
-                    .frame(minHeight: 44, alignment: .leading)
+                TileRow(title: "Quiet time", icon: .moon, tone: .graphite, showsChevron: true)
             }
+            .navigationLinkIndicatorVisibility(.hidden)
         } footer: {
             Text("Silence your phone and hide social apps while you study or at services, using a Focus.")
         }
@@ -237,35 +236,45 @@ private struct SettingsForm: View {
 
     private var reminderSection: some View {
         Section {
-            DatePicker("Reading time", selection: readingTimeBinding, displayedComponents: .hourAndMinute)
-                .frame(minHeight: 44)
-            Picker("Before a service", selection: $defaultServiceReminderMinutes) {
+            DatePicker(selection: readingTimeBinding, displayedComponents: .hourAndMinute) {
+                TileLabel(title: "Reading time", icon: .clock, tone: .sage)
+            }
+            .frame(minHeight: 44)
+            Picker(selection: $defaultServiceReminderMinutes) {
                 ForEach(serviceReminderOptions, id: \.self) { minutes in
                     Text(minutesText(minutes)).tag(minutes)
                 }
+            } label: {
+                TileLabel(title: "Before a service", icon: .bellRinging, tone: .coral)
             }
             .frame(minHeight: 44)
             .onChange(of: defaultServiceReminderMinutes) { _, _ in
                 NotificationScheduler.shared.reschedule(context: modelContext)
             }
-            LabeledContent("Notifications", value: NotificationAccess.statusText(notificationStatus))
-                .frame(minHeight: 44)
+            TileRow(
+                title: "Notifications",
+                icon: .bell,
+                tone: .coral,
+                value: NotificationAccess.statusText(notificationStatus)
+            )
             if notificationStatus == .notDetermined {
-                Button("Turn on reminders") {
+                Button {
                     Task {
                         _ = await NotificationAccess.request()
                         notificationStatus = await NotificationAccess.status()
                         NotificationScheduler.shared.reschedule(context: modelContext)
                     }
+                } label: {
+                    TileRow(title: "Turn on reminders", icon: .bellRinging, tone: .brand)
                 }
-                .frame(minHeight: 44, alignment: .leading)
             }
-            Button("Open Settings") {
+            Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }
+            } label: {
+                TileRow(title: "Open Settings", icon: .arrowSquareOut, tone: .graphite)
             }
-            .frame(minHeight: 44, alignment: .leading)
         } header: {
             Text("Reminders")
         } footer: {
@@ -284,16 +293,20 @@ private struct SettingsForm: View {
 
     private var bibleSection: some View {
         Section {
-            Picker("Translation", selection: $profile.translation) {
+            Picker(selection: $profile.translation) {
                 ForEach(Translation.allCases, id: \.self) { translation in
                     Text("\(translation.fullName) (\(translation.shortName))").tag(translation)
                 }
+            } label: {
+                TileLabel(title: "Translation", icon: .book, tone: .mint)
             }
             .frame(minHeight: 44)
-            Picker("Verse text size", selection: textSizeBinding) {
+            Picker(selection: textSizeBinding) {
                 ForEach(VerseTextSize.allCases, id: \.self) { size in
                     Text(size.title).tag(size)
                 }
+            } label: {
+                TileLabel(title: "Verse text size", icon: .textH, tone: .rose)
             }
             .frame(minHeight: 44)
             ScaledVerseText(text: "The Lord is my shepherd; I shall not want.", points: profile.textSize)
@@ -310,16 +323,14 @@ private struct SettingsForm: View {
 
     private var appearanceSection: some View {
         Section("Appearance") {
-            if typeSize.isAccessibilitySize {
-                Picker("Appearance", selection: $profile.appearance) { appearanceOptions }
-                    .pickerStyle(.menu)
-                    .frame(minHeight: 44)
-                    .sensoryFeedback(.selection, trigger: profile.appearance)
-            } else {
-                Picker("Appearance", selection: $profile.appearance) { appearanceOptions }
-                    .pickerStyle(.segmented)
-                    .sensoryFeedback(.selection, trigger: profile.appearance)
+            Picker(selection: $profile.appearance) {
+                appearanceOptions
+            } label: {
+                TileLabel(title: "Appearance", icon: .palette, tone: .teal)
             }
+            .pickerStyle(.menu)
+            .frame(minHeight: 44)
+            .sensoryFeedback(.selection, trigger: profile.appearance)
         }
     }
 
@@ -337,33 +348,34 @@ private struct SettingsForm: View {
             NavigationLink {
                 MonthlySummaryScreen()
             } label: {
-                PLabel("Export a month", icon: .export)
-                    .frame(minHeight: 44, alignment: .leading)
+                TileRow(title: "Export a month", icon: .export, tone: .brand, showsChevron: true)
             }
+            .navigationLinkIndicatorVisibility(.hidden)
             Button(action: backUp) {
                 HStack {
-                    PLabel(isBackingUp ? "Preparing backup…" : "Back up", icon: .cloudArrowUp)
+                    TileRow(
+                        title: isBackingUp ? "Preparing backup…" : "Back up",
+                        icon: .cloudArrowUp,
+                        tone: .sage
+                    )
                     if isBackingUp {
-                        Spacer()
                         ProgressView()
                     }
                 }
-                .frame(minHeight: 44, alignment: .leading)
             }
             .disabled(isBackingUp)
             Button {
                 showImporter = true
             } label: {
-                PLabel("Restore", icon: .cloudArrowDown)
-                    .frame(minHeight: 44, alignment: .leading)
+                TileRow(title: "Restore", icon: .cloudArrowDown, tone: .mint)
             }
-            Button("Delete all data", role: .destructive) {
+            Button(role: .destructive) {
                 showReset = true
+            } label: {
+                TileRow(title: "Delete all data", icon: .trash, destructive: true)
             }
-            .frame(minHeight: 44, alignment: .leading)
             if let statusMessage {
-                PLabel(statusMessage, icon: .checkCircle)
-                    .frame(minHeight: 44, alignment: .leading)
+                TileRow(title: statusMessage, icon: .checkCircle, tone: .sage)
             }
         } header: {
             Text("Data")
@@ -437,8 +449,7 @@ private struct SettingsForm: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: versionText)
-                .frame(minHeight: 44)
+            TileRow(title: "Version", icon: .info, tone: .graphite, value: versionText)
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text("Bible translations")
                     .font(.subheadline.weight(.semibold))

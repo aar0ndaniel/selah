@@ -199,6 +199,7 @@ struct BookChooser: View {
             }
         }
         .searchable(text: $search, prompt: "Search books")
+        .bottomSearchToolbar()
         .navigationTitle("Choose a book")
         .navigationBarTitleDisplayMode(.inline)
     }

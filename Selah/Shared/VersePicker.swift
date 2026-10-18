@@ -55,11 +55,8 @@ struct VersePicker: View {
         content
             .navigationTitle("Add a verse")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $query,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "John 3:16 or Psalm 23"
-            )
+            .searchable(text: $query, prompt: "John 3:16 or Psalm 23")
+            .bottomSearchToolbar()
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
     }

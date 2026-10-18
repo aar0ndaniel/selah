@@ -38,7 +38,7 @@ struct QuietTimeSetupView: View {
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.bottom, Theme.Spacing.l)
         }
-        .background { AppBackground() }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Quiet time")
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.success, trigger: tryCount)
@@ -169,7 +169,7 @@ struct QuietTimeSetupView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.s)
         .background(
-            Color(.systemBackground),
+            Color(.tertiarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
         )
         .accessibilityElement(children: .combine)
@@ -233,7 +233,7 @@ private struct QuietStepCard<Content: View>: View {
     }
 
     var body: some View {
-        SurfaceCard {
+        SurfaceCard(onGroupedPage: true) {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 HStack(alignment: .top, spacing: Theme.Spacing.s) {
                     Text("\(number)")

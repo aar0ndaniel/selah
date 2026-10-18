@@ -22,8 +22,12 @@ struct GlassCard<Content: View>: View {
 /// Looks right on white (light) and on black (dark).
 struct SurfaceCard<Content: View>: View {
     private let content: Content
+    private let onGroupedPage: Bool
 
-    init(@ViewBuilder content: () -> Content) {
+    /// - Parameter onGroupedPage: true on a `systemGroupedBackground` page (Settings style): the card is
+    ///   `secondarySystemGroupedBackground` with the iOS 26 grouped corner radius (26pt).
+    init(onGroupedPage: Bool = false, @ViewBuilder content: () -> Content) {
+        self.onGroupedPage = onGroupedPage
         self.content = content()
     }
 
@@ -32,8 +36,8 @@ struct SurfaceCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.m)
             .background(
-                Color(.secondarySystemBackground),
-                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                onGroupedPage ? Color(.secondarySystemGroupedBackground) : Color(.secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: onGroupedPage ? 26 : Theme.Radius.card, style: .continuous)
             )
     }
 }

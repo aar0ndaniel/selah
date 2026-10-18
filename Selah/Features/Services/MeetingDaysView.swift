@@ -84,10 +84,6 @@ struct MeetingDaysView: View {
                         } label: {
                             row(for: day)
                         }
-                        .buttonStyle(.plain)
-                        .listRowInsets(EdgeInsets(top: 6, leading: Theme.Spacing.m, bottom: 6, trailing: Theme.Spacing.m))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
                                 delete(day)
@@ -103,9 +99,8 @@ struct MeetingDaysView: View {
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background { AppBackground() }
+        // System inset grouped list on the grouped background, like the Settings app.
+        .listStyle(.insetGrouped)
         .navigationTitle("Meeting days")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -124,30 +119,26 @@ struct MeetingDaysView: View {
 
     private func row(for day: MeetingDay) -> some View {
         let reminder = day.isActive ? reminderText(day.reminderMinutesBefore) : "Off"
-        let reminderIcon: PIcon? = day.isActive ? .bell : nil
-        return SurfaceCard {
-            HStack(spacing: Theme.Spacing.s) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                        Text(day.displayName)
-                            .font(.selahHeadline)
-                            .foregroundStyle(.primary)
-                        Text("\(day.weekdayName) at \(day.timeLabel)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Pill(
-                        text: reminder,
-                        icon: reminderIcon,
-                        tone: day.isActive ? .sky : .slate
-                    )
-                }
-                Spacer(minLength: 0)
-                PIconView(.caretRight, size: 14, relativeTo: .footnote)
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+        return HStack(spacing: Theme.Spacing.s) {
+            TileIcon(icon: day.isActive ? .calendarCheck : .calendarBlank, tone: day.isActive ? .sage : .graphite)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                Text(day.displayName)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Text("\(day.weekdayName) at \(day.timeLabel)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
+            Spacer(minLength: Theme.Spacing.xs)
+            Text(reminder)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+            PIconView(.caretRight, size: 14, relativeTo: .footnote)
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
+        .frame(minHeight: Theme.minTapTarget)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(day.displayName), \(day.weekdayName) at \(day.timeLabel). \(reminder)")
@@ -231,8 +222,6 @@ struct MeetingDayEditor: View {
                 Text("Changing this never changes services you have already recorded.")
             }
         }
-        .scrollContentBackground(.hidden)
-        .background { AppBackground() }
         .navigationTitle(day.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: day.weekday) { _, _ in

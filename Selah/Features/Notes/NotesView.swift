@@ -68,7 +68,9 @@ struct NotesView: View {
             .background { AppBackground() }
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
+            .hidesPlusWhileSearching()
             .searchable(text: $query, prompt: "Search notes and verses")
+            .bottomSearchToolbar()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -81,6 +83,19 @@ struct NotesView: View {
                         }
                     }
                     .accessibilityLabel(layout == .board ? "Show as list" : "Show as board")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        router.pendingAction = .newNote
+                    } label: {
+                        Label {
+                            Text("New note")
+                        } icon: {
+                            Image(picon: .plus)
+                        }
+                    }
+                    .accessibilityLabel("New note")
+                    .accessibilityIdentifier("plus-button")
                 }
             }
             .sensoryFeedback(.selection, trigger: layoutRaw)

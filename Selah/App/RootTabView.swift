@@ -60,7 +60,8 @@ struct RootTabView: View {
                 tabLabel(.services, selected: selected)
             }
             Tab(value: AppTab.notes) {
-                NotesView().plusButtonAboveTabBar()
+                // Notes has the iOS 26 bottom search capsule there, so its "New note" lives in the nav bar instead.
+                NotesView()
             } label: {
                 tabLabel(.notes, selected: selected)
             }
