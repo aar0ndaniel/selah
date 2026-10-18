@@ -45,8 +45,7 @@ final class ServiceFlowShots: XCTestCase {
 
         // 3. Fill in the sermon.
         type(into: first([app.textFields["Title"], app.textViews["Title"]]), "Grace that keeps")
-        type(into: first([app.textFields["Sermonist"]]), "Pastor Mensah
-")
+        type(into: first([app.textFields["Sermonist"]]), "Pastor Mensah\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)3-sermon-filled-\(mode)")
 
@@ -72,8 +71,7 @@ final class ServiceFlowShots: XCTestCase {
         tap(first([app.buttons["Bible class"], app.staticTexts["Bible class"]]))
         pause()
         type(into: first([app.textFields["Lesson"], app.textViews["Lesson"]]), "Walking in the Spirit")
-        type(into: first([app.textFields["Taught by"]]), "Deacon Owusu
-")
+        type(into: first([app.textFields["Taught by"]]), "Deacon Owusu\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)6-bible-class-\(mode)")
 
@@ -83,8 +81,7 @@ final class ServiceFlowShots: XCTestCase {
         tap(first([app.buttons["Add song"]]))
         pause()
         type(into: first([app.textFields["Hymn number"]]), "212")
-        type(into: first([app.textFields["Song title"]]), "Great is thy faithfulness
-")
+        type(into: first([app.textFields["Song title"]]), "Great is thy faithfulness\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)7-songs-\(mode)")
     }
