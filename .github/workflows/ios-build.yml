@@ -62,6 +62,18 @@ jobs:
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
           xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination "platform=iOS Simulator,id=$DEVICE,arch=arm64" -derivedDataPath .build/DerivedData -resultBundlePath .build/SelahTests.xcresult CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -parallel-testing-enabled NO test
+      - name: Test summary
+        if: ${{ always() && (contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch') }}
+        run: |
+          if [ -d .build/SelahTests.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path .build/SelahTests.xcresult --compact | python3 -c '
+          import json, sys
+          s = json.load(sys.stdin)
+          print("SUMMARY result=%s total=%s passed=%s failed=%s skipped=%s" % (s.get("result"), s.get("totalTestCount"), s.get("passedTests"), s.get("failedTests"), s.get("skippedTests")))
+          for f in s.get("testFailures", []):
+              print("FAILED:", f.get("testName"), "-", f.get("failureText"))
+          '
+          fi
       - name: Save test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
