@@ -19,6 +19,7 @@ struct BookPage: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var circleSize: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 72
 
@@ -199,7 +200,7 @@ struct BookPage: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text(plan.bookName)
                     .font(.selahDisplay)
-                    .foregroundStyle(tone.ink)
+                    .foregroundStyle(tone.onSurface)
                     .accessibilityAddTraits(.isHeader)
 
                 let layout = typeSize.isAccessibilitySize
@@ -209,7 +210,7 @@ struct BookPage: View {
                     ring
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text(StudyActions.progressText(for: plan))
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(tone.inkSecondary)
                         FlowLayout(spacing: Theme.Spacing.xs) {
                             ForEach(pills, id: \.text) { pill in
@@ -223,6 +224,12 @@ struct BookPage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(tone.fill)
+        .overlay(alignment: .leading) {
+            // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
+            if colorScheme == .dark {
+                Rectangle().fill(tone.swatch).frame(width: 4).accessibilityHidden(true)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
@@ -303,13 +310,13 @@ struct BookPage: View {
                             openDay(day)
                         }
                         Text(planRangeText(planCalendar))
-                            .font(.footnote)
+                            .font(.selahLabelSmall)
                             .foregroundStyle(.secondary)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                         Text("The calendar starts on the day you start this book.")
-                            .font(.body)
+                            .font(.selahBody)
                         Button("Start reading today") {
                             StudyActions.startReading(plan)
                         }
@@ -343,7 +350,7 @@ struct BookPage: View {
                         }
                     }
                     Text("Tap a chapter to mark it read or not read.")
-                        .font(.footnote)
+                        .font(.selahLabelSmall)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -358,10 +365,10 @@ struct BookPage: View {
             VStack(spacing: 0) {
                 if isRead {
                     PIconView(.check, size: 12, relativeTo: .caption2)
-                        .font(.caption2.weight(.bold))
+                        .font(.selahEyebrow.weight(.bold))
                 }
                 Text("\(chapter)")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.selahLabel.weight(.semibold))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
             }
@@ -399,7 +406,7 @@ struct BookPage: View {
             if sortedEntries.isEmpty {
                 SurfaceCard {
                     Text("No notes yet. Tap a day in the calendar, or write today's note.")
-                        .font(.body)
+                        .font(.selahBody)
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -429,7 +436,7 @@ struct BookPage: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack {
                     Text(dateText)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.selahLabel.weight(.semibold))
                     Spacer()
                     Pill(text: "Chapter \(entry.chapter)", icon: .bookOpen, tone: tone)
                 }
@@ -438,12 +445,12 @@ struct BookPage: View {
                         .font(.selahVerseCompact)
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
                     Text(verse.reference)
-                        .font(.footnote)
+                        .font(.selahLabelSmall)
                         .foregroundStyle(.secondary)
                 }
                 if !firstLine.isEmpty {
                     Text(firstLine)
-                        .font(.subheadline)
+                        .font(.selahLabel)
                         .foregroundStyle(.secondary)
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                 }

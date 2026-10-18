@@ -137,6 +137,7 @@ extension PersonalNote {
 /// Six note colours as round swatches. The selected one is ringed and carries a check, so colour is not the only cue.
 private struct ToneSwatches: View {
     @Binding var selection: NoteColour
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: Theme.Spacing.xs) {
@@ -156,14 +157,14 @@ private struct ToneSwatches: View {
             selection = colour
         } label: {
             ZStack {
-                Circle().fill(tone.fill)
+                Circle().fill(tone.swatch)
                 Circle().strokeBorder(
                     tone.ink.opacity(isSelected ? 1 : 0.3),
                     lineWidth: isSelected ? 2.5 : 1
                 )
                 if isSelected {
                     PIconView(.check, size: 16, relativeTo: .footnote)
-                        .foregroundStyle(tone.ink)
+                        .foregroundStyle(colorScheme == .dark ? Color.black : tone.ink)
                 }
             }
             .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)

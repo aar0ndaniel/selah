@@ -73,7 +73,7 @@ struct OnCardPill: View {
                 PIconView(icon, size: 14, relativeTo: .footnote)
             }
             Text(text)
-                .font(.footnote.weight(.semibold))
+                .font(.selahLabelSmall.weight(.semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(tone.ink)
@@ -147,7 +147,7 @@ struct StickyNoteCard: View {
 
             if let snippetText {
                 snippetText
-                    .font(size == .large ? .body : .subheadline)
+                    .font(size == .large ? .selahBody : .selahLabel)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(snippetLimit)
@@ -156,7 +156,7 @@ struct StickyNoteCard: View {
             Spacer(minLength: 0)
 
             Text(item.date, format: .dateTime.day().month(.abbreviated).year())
-                .font(.caption)
+                .font(.selahLabelSmall)
                 .foregroundStyle(tone.inkSecondary)
         }
         .padding(.horizontal, Theme.Spacing.m)
@@ -165,6 +165,13 @@ struct StickyNoteCard: View {
         .frame(width: fixedWidth, alignment: .topLeading)
         .frame(maxWidth: size == .regular ? CGFloat.infinity : nil, minHeight: minHeight, alignment: .topLeading)
         .background(tone.fill, in: shape)
+        .overlay(alignment: .top) {
+            // Dark mode: every note is the same grey, so a 4pt top band carries the note's colour.
+            if colorScheme == .dark {
+                shape.fill(tone.swatch)
+                    .mask(alignment: .top) { Rectangle().frame(height: 4) }
+            }
+        }
         .contentShape(shape)
         // Soft shadow in light mode only; on a black page it would be invisible and only add noise.
         .shadow(color: colorScheme == .light ? Color.black.opacity(0.10) : .clear, radius: 6, x: 0, y: 3)

@@ -196,7 +196,7 @@ private struct EntryFields: View {
         SurfaceCard {
             HStack {
                 Text("Chapter")
-                    .font(.body)
+                    .font(.selahBody)
                 Spacer()
                 Picker("Chapter", selection: $entry.chapter) {
                     ForEach(1...max(plan.totalChapters, 1), id: \.self) { chapter in
@@ -234,7 +234,7 @@ private struct EntryFields: View {
                                 .multilineTextAlignment(.leading)
                             Text(verse.reference)
                                 .font(.selahHeadline)
-                                .foregroundStyle(tone.ink)
+                                .foregroundStyle(tone.onSurface)
                         }
                     }
                     .contentShape(Rectangle())

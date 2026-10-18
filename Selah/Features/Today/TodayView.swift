@@ -30,6 +30,7 @@ struct TodayView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     /// Quiet time state shared with the App Intents. Reading it in `body` makes the banner appear and go away.
     private let quiet = QuietIntentRouter.shared
 
@@ -228,7 +229,7 @@ struct TodayView: View {
                         .font(.selahCardTitle)
                         .accessibilityAddTraits(.isHeader)
                     Text("Start a book in Study first")
-                        .font(.body)
+                        .font(.selahBody)
                     Button("Go to Study") { router.selectedTab = .study }
                         .buttonStyle(.selahSecondary(tone: .sky))
                 }
@@ -240,7 +241,7 @@ struct TodayView: View {
                         .font(.selahCardTitle)
                         .accessibilityAddTraits(.isHeader)
                     Text("Pick a verse that spoke to you today.")
-                        .font(.body)
+                        .font(.selahBody)
                     Button("Choose today's verse") {
                         if readingPlans.isEmpty {
                             router.selectedTab = .study
@@ -257,7 +258,7 @@ struct TodayView: View {
     private func shareButton(text: String, reference: String) -> some View {
         ShareLink(item: "\(text) \u{2014} \(reference)") {
             Label("Share", picon: .export)
-                .font(.subheadline.weight(.semibold))
+                .font(.selahLabel.weight(.semibold))
                 .foregroundStyle(Tone.sky.ink)
                 .padding(.horizontal, Theme.Spacing.m)
                 .frame(minHeight: Theme.minTapTarget)
@@ -285,7 +286,7 @@ struct TodayView: View {
                         Text("No book in progress")
                             .font(.selahHeadline)
                         Text("Start a book in Study and it will show up here each day.")
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(.secondary)
                         Button("Go to Study") { router.selectedTab = .study }
                             .buttonStyle(.selahSecondary())
@@ -334,13 +335,13 @@ struct TodayView: View {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                             Text(item.bookName)
                                 .font(.selahCardTitle)
-                                .foregroundStyle(tone.ink)
+                                .foregroundStyle(tone.onSurface)
                             Text(item.nextText)
-                                .font(.subheadline)
+                                .font(.selahLabel)
                                 .foregroundStyle(.primary)
                             if let reminders = StudyActions.remindersText(for: plan) {
                                 Text(reminders)
-                                    .font(.footnote)
+                                    .font(.selahLabelSmall)
                                     .foregroundStyle(tone.inkSecondary)
                             }
                         }
@@ -366,6 +367,13 @@ struct TodayView: View {
                     .buttonStyle(.selahPrimaryFull)
                 }
             }
+            .overlay(alignment: .leading) {
+                // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
+                if colorScheme == .dark {
+                    Rectangle().fill(tone.swatch).frame(width: 4).accessibilityHidden(true)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
     }
 
@@ -386,7 +394,7 @@ struct TodayView: View {
                         Text("No meeting days yet")
                             .font(.selahHeadline)
                         Text("Add the days you meet in Settings and the next one will show here.")
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(.secondary)
                         Button("Open settings") { showSettings = true }
                             .buttonStyle(.selahSecondary())
@@ -413,7 +421,7 @@ struct TodayView: View {
                     // Calendar badge: weekday over day number.
                     VStack(spacing: 0) {
                         Text(next.date.formatted(.dateTime.weekday(.abbreviated)))
-                            .font(.caption.weight(.bold))
+                            .font(.selahLabelSmall.weight(.bold))
                             .textCase(.uppercase)
                             .tracking(0.8)
                             .foregroundStyle(Tone.coral.ink)
@@ -434,7 +442,7 @@ struct TodayView: View {
                             .foregroundStyle(.primary)
                         OnCardPill(text: timeText, icon: .clock, tone: tone)
                         Text(countdown)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.selahLabel.weight(.semibold))
                             .foregroundStyle(tone.ink)
                     }
                     Spacer(minLength: 0)
@@ -481,7 +489,7 @@ struct TodayView: View {
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                         Text("Notes you write will show up here.")
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(.secondary)
                         Button("Write a note") {
                             router.selectedTab = .notes

@@ -44,7 +44,7 @@ struct NoteListRow: View {
                 if let snippetText {
                     // Not .secondary: that grey is about 4:1 on this card; primary at 78% stays above 4.5:1.
                     snippetText
-                        .font(.subheadline)
+                        .font(.selahLabel)
                         .foregroundStyle(.primary.opacity(0.78))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
@@ -81,7 +81,7 @@ struct NoteListRow: View {
 
     private var tile: some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(tone.fill)
+            .fill(tone.pillFill)
             .frame(width: tileSize, height: tileSize)
             .overlay {
                 PIconView(tileIcon, size: 26, relativeTo: .body)

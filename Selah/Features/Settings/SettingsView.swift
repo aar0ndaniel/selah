@@ -41,7 +41,7 @@ struct ScaledVerseText: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: CGFloat(points) * unit, design: .serif))
+            .font(Font.custom(SelahFontFamily.body, size: CGFloat(points) * unit))
     }
 }
 
@@ -475,13 +475,13 @@ private struct SettingsForm: View {
             TileRow(title: "Version", icon: .info, tone: .graphite, value: versionText)
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text("Bible translations")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.selahLabel.weight(.semibold))
                 Text("King James Version (KJV): public domain.")
                 Text("American Standard Version (ASV, 1901): public domain.")
                 Text("World English Bible (WEB): public domain, from eBible.org. \"World English Bible\" is a trademark of eBible.org.")
                 Text("Berean Standard Bible (BSB): public domain, released by Berean Bible.")
             }
-            .font(.footnote)
+            .font(.selahLabelSmall)
             .foregroundStyle(.secondary)
             .padding(.vertical, Theme.Spacing.xxs)
         } header: {

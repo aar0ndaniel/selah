@@ -240,7 +240,7 @@ private struct OnboardingPages: View {
                 .font(.selahDisplay)
                 .accessibilityAddTraits(.isHeader)
             Text(body)
-                .font(.body)
+                .font(.selahBody)
                 .foregroundStyle(.secondary)
         }
     }
@@ -275,7 +275,7 @@ private struct OnboardingPages: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(label)
-                .font(.caption)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
             TextField(placeholder, text: text)
                 .textContentType(content)
@@ -350,10 +350,10 @@ private struct OnboardingPages: View {
             setPreset(preset, on: !on)
         } label: {
             HStack(spacing: Theme.Spacing.m) {
-                IconTile(preset.icon, fill: preset.tone.fill, ink: preset.tone.ink, size: 44, relativeTo: .headline)
+                IconTile(preset.icon, fill: preset.tone.pillFill, ink: preset.tone.ink, size: 44, relativeTo: .headline)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(preset.name)
-                        .font(.headline)
+                        .font(.selahCardTitle)
                         .foregroundStyle(.primary)
                     SelahPill(preset.detail, icon: .clock, style: .soft(preset.tone))
                 }
@@ -389,16 +389,16 @@ private struct OnboardingPages: View {
                             editingDay = day
                         } label: {
                             HStack(spacing: Theme.Spacing.m) {
-                                IconTile(.calendarBlank, fill: Tone.slate.fill, ink: Tone.slate.ink, size: 44, relativeTo: .headline)
+                                IconTile(.calendarBlank, fill: Tone.slate.pillFill, ink: Tone.slate.ink, size: 44, relativeTo: .headline)
                                 VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                     Text(day.displayName)
-                                        .font(.headline)
+                                        .font(.selahCardTitle)
                                         .foregroundStyle(.primary)
                                     SelahPill("\(day.weekdayName) at \(day.timeLabel)", icon: .clock, style: .soft(.slate))
                                 }
                                 Spacer(minLength: 0)
                                 PIconView(.caretRight, size: 14, relativeTo: .footnote)
-                                    .font(.footnote.weight(.semibold))
+                                    .font(.selahLabelSmall.weight(.semibold))
                                     .foregroundStyle(.tertiary)
                                     .accessibilityHidden(true)
                             }
@@ -427,7 +427,7 @@ private struct OnboardingPages: View {
         } label: {
             HStack(spacing: Theme.Spacing.s) {
                 Text(translation.fullName)
-                    .font(.body)
+                    .font(.selahBody)
                     .foregroundStyle(.primary)
                 SelahPill(translation.shortName, style: .neutral)
                 Spacer(minLength: 0)
@@ -461,10 +461,10 @@ private struct OnboardingPages: View {
                     IconTile(.bell, fill: Color(.systemBackground), ink: Theme.brandInk, size: 40, relativeTo: .headline)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text("Gentle reminders")
-                            .font(.headline)
+                            .font(.selahCardTitle)
                             .foregroundStyle(Theme.brandInk)
                         Text("Selah can remind you to read your book each day and before your gatherings. It only sends reminders you set up. You can turn this off in Settings.")
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(Theme.brandInk.opacity(0.85))
                     }
                 }

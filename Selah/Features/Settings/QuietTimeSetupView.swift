@@ -53,10 +53,10 @@ struct QuietTimeSetupView: View {
                     .foregroundStyle(Tone.slate.ink)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Selah can't silence your phone by itself. iOS lets you do it with a Focus. Set it up once and it turns on by itself.")
-                        .font(.body)
+                        .font(.selahBody)
                         .foregroundStyle(.primary)
                     Text("It takes about five minutes. Nothing here needs an account.")
-                        .font(.subheadline)
+                        .font(.selahLabel)
                         .foregroundStyle(Tone.slate.inkSecondary)
                 }
             }
@@ -75,7 +75,7 @@ struct QuietTimeSetupView: View {
                 "Tap Customize screens, then Home Screen, and pick a page without social apps."
             ])
             Text("The button below opens Selah's own page in Settings. Tap Settings at the top left to go back one level, then choose Focus.")
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
             Button {
                 Task { await open(URL(string: UIApplication.openSettingsURLString)) { settingsMessage = "Couldn't open Settings. Open it from your Home Screen." } }
@@ -97,7 +97,7 @@ struct QuietTimeSetupView: View {
                 "Under Open to, choose Today, Study session or Service notes. Selah opens there when the Focus is on."
             ])
             Text("If Selah isn't in the list, open Selah once and try again.")
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
     }
@@ -128,7 +128,7 @@ struct QuietTimeSetupView: View {
         return QuietStepCard(number: 4, title: "Turn it on at your service and study times", icon: .clock) {
             if items.isEmpty {
                 Text("You have no meeting days or reading reminders yet. Add them and your times will be listed here.")
-                    .font(.subheadline)
+                    .font(.selahLabel)
                 NavigationLink {
                     MeetingDaysView()
                 } label: {
@@ -137,7 +137,7 @@ struct QuietTimeSetupView: View {
                 .buttonStyle(.selahSecondary())
             } else {
                 Text("Make one automation for each time below.")
-                    .font(.subheadline)
+                    .font(.selahLabel)
                 QuietBullets(lines: [
                     "In Shortcuts, tap Automation, then +, then Time of Day.",
                     "Set the time shown, then choose Weekly and the day, or Daily.",
@@ -163,7 +163,7 @@ struct QuietTimeSetupView: View {
             Text(item.title)
                 .font(.selahHeadline)
             Text("Add \"\(item.actionName)\", then Set Focus: Selah.")
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -179,7 +179,7 @@ struct QuietTimeSetupView: View {
     private var stepFive: some View {
         QuietStepCard(number: 5, title: "Try it", icon: .sun) {
             Text("Start quiet time now to see what it does. A card will show on Today.")
-                .font(.subheadline)
+                .font(.selahLabel)
             Button {
                 quiet.startQuietTime()
                 tryCount += 1
@@ -190,11 +190,11 @@ struct QuietTimeSetupView: View {
             if quiet.isQuietTimeOn {
                 QuietTimeBanner(onEnd: { quiet.endQuietTime() })
                 Text("This card now shows on Today.")
-                    .font(.footnote)
+                    .font(.selahLabelSmall)
                     .foregroundStyle(.secondary)
             }
             Text("You can also ask Siri: \"Start quiet time in Selah\".")
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
     }
@@ -294,7 +294,7 @@ private struct QuietBullets: View {
                 .accessibilityElement(children: .combine)
             }
         }
-        .font(.subheadline)
+        .font(.selahLabel)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -305,7 +305,7 @@ private struct QuietInlineMessage: View {
 
     var body: some View {
         PLabel(text, icon: .warningCircle, size: 16, textStyle: .footnote)
-            .font(.footnote)
+            .font(.selahLabelSmall)
             .foregroundStyle(.secondary)
             .accessibilityElement(children: .combine)
     }

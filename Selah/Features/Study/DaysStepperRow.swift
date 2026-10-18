@@ -59,13 +59,13 @@ struct DayQuickPicks: View {
                     days = pick.days
                 } label: {
                     Text(pick.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.selahLabel.weight(.semibold))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(isSelected ? Color(.systemBackground) : Tone.slate.ink)
                         .padding(.horizontal, Theme.Spacing.s)
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget)
-                        .background(isSelected ? Color.accentColor : Tone.slate.fill, in: Capsule())
+                        .background(isSelected ? Color.accentColor : Tone.slate.pillFill, in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

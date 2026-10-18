@@ -22,7 +22,7 @@ struct QuietTimeBanner: View {
                         .foregroundStyle(Theme.brandInk)
                         .accessibilityAddTraits(.isHeader)
                     Text("Your Focus keeps notifications away.")
-                        .font(.subheadline)
+                        .font(.selahLabel)
                         .foregroundStyle(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,7 +31,7 @@ struct QuietTimeBanner: View {
 
             Button(action: onEnd) {
                 Text("End")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.selahLabel.weight(.semibold))
                     .foregroundStyle(Theme.brandInk)
                     .padding(.horizontal, Theme.Spacing.m)
                     .frame(minWidth: Theme.minTapTarget, minHeight: Theme.minTapTarget)

@@ -130,7 +130,7 @@ struct ServicePage: View {
         Section {
             HStack(spacing: Theme.Spacing.s) {
                 Text(dateText)
-                    .font(.headline)
+                    .font(.selahCardTitle)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
                 Button {
@@ -256,7 +256,7 @@ struct ServicePage: View {
     ) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             Text(title)
-                .font(.headline)
+                .font(.selahCardTitle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
             Button(action: toggleFavourite) {
@@ -291,7 +291,7 @@ struct ServicePage: View {
     private func verseRow(_ verse: VerseRef) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(verse.reference)
-                .font(.subheadline.weight(.semibold))
+                .font(.selahLabel.weight(.semibold))
                 .foregroundStyle(Color.accentColor)
             if !verse.textSnapshot.isEmpty {
                 Text(verse.textSnapshot)
@@ -352,7 +352,7 @@ struct ServicePage: View {
                 }
             } label: {
                 Text("Songs")
-                    .font(.headline)
+                    .font(.selahCardTitle)
                     .frame(minHeight: Theme.minTapTarget, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -411,7 +411,7 @@ private struct SongRow: View {
         VStack(alignment: .leading, spacing: 0) {
             TextField("Hymn number", text: $song.hymnNumber)
                 .keyboardType(.numberPad)
-                .font(.subheadline)
+                .font(.selahLabel)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
                 .accessibilityLabel("Song \(position) hymn number")

@@ -56,6 +56,13 @@ struct BoardNoteCard: View {
                             shape.strokeBorder(Color(.separator), lineWidth: 0.5)
                         }
                     }
+                    .overlay(alignment: .top) {
+                        // Dark mode: every note is the same grey, so a 4pt top band carries the note's colour.
+                        if colorScheme == .dark {
+                            shape.fill(tone.swatch)
+                                .mask(alignment: .top) { Rectangle().frame(height: 4) }
+                        }
+                    }
             }
             .contentShape(shape)
             .overlay(alignment: attachmentAlignment) { attachment }
@@ -76,7 +83,7 @@ struct BoardNoteCard: View {
 
             if let snippetText {
                 snippetText
-                    .font(size != .regular ? .body : .subheadline)
+                    .font(size != .regular ? .selahBody : .selahLabel)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(size != .regular ? 7 : 6)
@@ -85,7 +92,7 @@ struct BoardNoteCard: View {
             Spacer(minLength: 0)
 
             Text(item.date, format: .dateTime.day().month(.abbreviated).year())
-                .font(.caption)
+                .font(.selahLabelSmall)
                 .foregroundStyle(tone.inkSecondary)
         }
     }

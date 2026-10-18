@@ -5,6 +5,7 @@ import SwiftUI
 struct ToneSwatchPicker: View {
     @Binding var selection: NoteColour
 
+    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var swatchSize: CGFloat = 44
 
     var body: some View {
@@ -28,19 +29,20 @@ struct ToneSwatchPicker: View {
         } label: {
             VStack(spacing: Theme.Spacing.xxs) {
                 ZStack {
-                    Circle().fill(tone.fill)
+                    Circle().fill(tone.swatch)
                     Circle().strokeBorder(tone.ink.opacity(0.35), lineWidth: 1)
                     if isSelected {
                         Circle().strokeBorder(Color.accentColor, lineWidth: 3)
                         PIconView(.check, size: 18)
                             .fontWeight(.bold)
-                            .foregroundStyle(tone.ink)
+                            // The swatch is the light tonal colour in dark mode, so the tick goes dark there.
+                            .foregroundStyle(colorScheme == .dark ? Color.black : tone.ink)
                     }
                 }
                 .frame(width: swatchSize, height: swatchSize)
 
                 Text(tone.name)
-                    .font(.caption)
+                    .font(.selahLabelSmall)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)

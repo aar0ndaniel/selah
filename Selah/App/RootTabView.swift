@@ -174,8 +174,8 @@ private struct PlusButton: View {
                 router.pendingAction = action
             } label: {
                 PIconView(.plus, size: 26, relativeTo: .title2)
-                    // White on deep teal (light), black on bright teal (dark): keeps contrast in both.
-                    .foregroundStyle(Color(.systemBackground))
+                    // Theme.onAccent: white on the light accent, deep red on the dark accent (keeps contrast).
+                    .foregroundStyle(Theme.onAccent)
                     .frame(width: diameter, height: diameter)
                     .contentShape(Circle())
             }

@@ -216,7 +216,7 @@ struct BookChooser: View {
                     Text(book)
                         .foregroundStyle(.primary)
                     Text(StudyActions.chaptersText(chapters))
-                        .font(.footnote)
+                        .font(.selahLabelSmall)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()

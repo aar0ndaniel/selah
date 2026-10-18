@@ -129,7 +129,7 @@ struct SearchHubView: View {
                     .foregroundStyle(.primary)
                 if !text.isEmpty {
                     Text(text)
-                        .font(.subheadline)
+                        .font(.selahLabel)
                         .foregroundStyle(.primary.opacity(0.78))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -183,7 +183,7 @@ struct SearchHubView: View {
             Text(title)
                 .font(.selahHeadline)
             Text(verse.text)
-                .font(.body)
+                .font(.selahBody)
                 .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(verse.reference.verseStart == nil ? 8 : nil)
                 .multilineTextAlignment(.leading)

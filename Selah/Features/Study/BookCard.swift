@@ -14,7 +14,7 @@ struct CardPill: View {
                 PIconView(icon, size: 14, relativeTo: .footnote)
             }
             Text(text)
-                .font(.footnote.weight(.semibold))
+                .font(.selahLabelSmall.weight(.semibold))
         }
         .foregroundStyle(tone.ink)
         .padding(.horizontal, Theme.Spacing.s)
@@ -30,6 +30,7 @@ struct BookCard: View {
     let plan: ReadingPlan
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 64
 
     private var tone: Tone { plan.cardTone }
@@ -55,6 +56,15 @@ struct BookCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(tone.fill)
+        .overlay(alignment: .leading) {
+            // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
+            if colorScheme == .dark {
+                Rectangle()
+                    .fill(tone.swatch)
+                    .frame(width: 4)
+                    .accessibilityHidden(true)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .accessibilityElement(children: .ignore)
@@ -73,7 +83,7 @@ struct BookCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(plan.bookName)
                     .font(.selahCardTitle)
-                    .foregroundStyle(tone.ink)
+                    .foregroundStyle(tone.onSurface)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 FlowLayout(spacing: Theme.Spacing.xs) {
                     ForEach(pills, id: \.text) { pill in
@@ -84,7 +94,7 @@ struct BookCard: View {
 
             if !typeSize.isAccessibilitySize {
                 PIconView(.caretRight, size: 14, relativeTo: .footnote)
-                    .font(.footnote.weight(.semibold))
+                    .font(.selahLabelSmall.weight(.semibold))
                     .foregroundStyle(tone.inkSecondary)
                     .accessibilityHidden(true)
             }

@@ -94,7 +94,7 @@ struct MeetingDaysView: View {
                     }
                 } footer: {
                     Text("Changing your meeting days never changes services you have already recorded.")
-                        .font(.footnote)
+                        .font(.selahLabelSmall)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -123,15 +123,15 @@ struct MeetingDaysView: View {
             TileIcon(icon: day.isActive ? .calendarCheck : .calendarBlank, tone: day.isActive ? .sage : .graphite)
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(day.displayName)
-                    .font(.body)
+                    .font(.selahBody)
                     .foregroundStyle(.primary)
                 Text("\(day.weekdayName) at \(day.timeLabel)")
-                    .font(.subheadline)
+                    .font(.selahLabel)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Theme.Spacing.xs)
             Text(reminder)
-                .font(.subheadline)
+                .font(.selahLabel)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
             PIconView(.caretRight, size: 14, relativeTo: .footnote)

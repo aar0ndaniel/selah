@@ -72,7 +72,7 @@ struct PlanCalendarView: View {
         HStack(spacing: 0) {
             ForEach(Array(plan.weekdaySymbols().enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(.caption.weight(.semibold))
+                    .font(.selahLabelSmall.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
             }
@@ -109,7 +109,7 @@ struct PlanCalendarView: View {
 
         if state == .outside {
             Text("\(number)")
-                .font(.subheadline)
+                .font(.selahLabel)
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, minHeight: cellSize)
                 .accessibilityHidden(true)
@@ -161,23 +161,23 @@ struct PlanCalendarView: View {
                 PIconView(.check, size: 11, relativeTo: .caption2)
                     .fontWeight(.bold)
                 Text("\(number)")
-                    .font(.caption2.weight(isToday ? .heavy : .semibold))
+                    .font(.selahEyebrow.weight(isToday ? .heavy : .semibold))
             }
             .foregroundStyle(tone.fill)
         case .missed:
             VStack(spacing: 0) {
                 PIconView(.x, size: 10, relativeTo: .caption2)
                 Text("\(number)")
-                    .font(.caption2.weight(isToday ? .heavy : .regular))
+                    .font(.selahEyebrow.weight(isToday ? .heavy : .regular))
             }
             .foregroundStyle(Color(.secondaryLabel))
         case .upcoming:
             Text("\(number)")
-                .font(.subheadline)
+                .font(.selahLabel)
                 .foregroundStyle(.primary)
         case .today:
             Text("\(number)")
-                .font(.subheadline.weight(.bold))
+                .font(.selahLabel.weight(.bold))
                 .foregroundStyle(.primary)
         case .outside:
             EmptyView()
@@ -198,9 +198,9 @@ struct PlanCalendarView: View {
                         listGlyph(state)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                                .font(.body.weight(isToday ? .bold : .regular))
+                                .font(.selahBody.weight(isToday ? .bold : .regular))
                             Text(isToday && state == .studied ? "Today, studied" : capitalizingFirst(state.spokenName))
-                                .font(.subheadline)
+                                .font(.selahLabel)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
@@ -269,7 +269,7 @@ struct PlanCalendarView: View {
             glyph()
                 .frame(width: 18, height: 18)
             Text(title)
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
     }

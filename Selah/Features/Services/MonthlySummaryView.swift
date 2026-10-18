@@ -128,10 +128,10 @@ struct MonthlySummaryView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text("\(count)")
                     .font(.selahStat)
-                    .foregroundStyle(tone.ink)
+                    .foregroundStyle(tone.onSurface)
                     .contentTransition(.numericText())
                 Text(label)
-                    .font(.subheadline)
+                    .font(.selahLabel)
                     .foregroundStyle(tone.inkSecondary)
             }
         }
@@ -191,10 +191,10 @@ struct MonthlySummaryView: View {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
                 Text(item.book)
                     .font(.selahHeadline)
-                    .foregroundStyle(tone.ink)
+                    .foregroundStyle(tone.onSurface)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(times)
-                    .font(.subheadline)
+                    .font(.selahLabel)
                     .foregroundStyle(tone.inkSecondary)
             }
             GeometryReader { proxy in
@@ -249,11 +249,11 @@ struct MonthlySummaryView: View {
                 .font(.selahHeadline)
             if !detail.isEmpty {
                 Text(detail)
-                    .font(.subheadline)
+                    .font(.selahLabel)
                     .foregroundStyle(.secondary)
             }
             Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                .font(.footnote)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -263,10 +263,10 @@ struct MonthlySummaryView: View {
     private func countRow(title: String, count: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
             Text(title)
-                .font(.body)
+                .font(.selahBody)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(count == 1 ? "1 time" : "\(count) times")
-                .font(.subheadline)
+                .font(.selahLabel)
                 .foregroundStyle(.secondary)
         }
         .frame(minHeight: 44)

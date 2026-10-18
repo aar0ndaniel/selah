@@ -145,10 +145,10 @@ struct ServicesView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(prompt.title)
                             .font(.selahCardTitle)
-                            .foregroundStyle(tone.ink)
+                            .foregroundStyle(tone.onSurface)
                             .accessibilityAddTraits(.isHeader)
                         Text(Date().formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                            .font(.subheadline)
+                            .font(.selahLabel)
                             .foregroundStyle(tone.inkSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -267,7 +267,7 @@ struct ServicesView: View {
                                 .multilineTextAlignment(.leading)
                             if !service.sermonist.isEmpty {
                                 Text(service.sermonist)
-                                    .font(.subheadline)
+                                    .font(.selahLabel)
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.leading)
                             }
@@ -406,11 +406,11 @@ struct ServicesView: View {
                             .multilineTextAlignment(.leading)
                         if !detail.isEmpty {
                             Text(detail)
-                                .font(.subheadline)
+                                .font(.selahLabel)
                                 .foregroundStyle(.secondary)
                         }
                         Text(dateLabel)
-                            .font(.footnote)
+                            .font(.selahLabelSmall)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -482,15 +482,15 @@ private struct DateBadge: View {
     var body: some View {
         VStack(spacing: 0) {
             Text(date.formatted(.dateTime.month(.abbreviated)))
-                .font(.caption2.weight(.semibold))
+                .font(.selahEyebrow)
                 .textCase(.uppercase)
                 .foregroundStyle(tone.inkSecondary)
             Text(date.formatted(.dateTime.day()))
-                .font(.system(.title3, design: .serif, weight: .semibold).monospacedDigit())
-                .foregroundStyle(tone.ink)
+                .font(.selahStat)
+                .foregroundStyle(tone.onSurface)
         }
         .frame(width: width, height: width)
-        .background(tone.fill, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+        .background(tone.pillFill, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
         .accessibilityHidden(true)
     }
 }
