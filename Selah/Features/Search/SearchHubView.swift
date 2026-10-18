@@ -210,7 +210,7 @@ struct SearchHubView: View {
         return Button {
             open(item)
         } label: {
-            NoteListRow(
+            NoteCard(
                 item: item,
                 wordCount: words,
                 highlightCount: rich?.highlightCount ?? 0,

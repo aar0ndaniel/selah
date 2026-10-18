@@ -30,7 +30,6 @@ struct TodayView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     /// Quiet time state shared with the App Intents. Reading it in `body` makes the banner appear and go away.
     private let quiet = QuietIntentRouter.shared
 
@@ -367,12 +366,6 @@ struct TodayView: View {
                     .buttonStyle(.selahPrimaryFull)
                 }
             }
-            .overlay(alignment: .leading) {
-                // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
-                if colorScheme == .dark {
-                    Rectangle().fill(tone.swatch).frame(width: 4).accessibilityHidden(true)
-                }
-            }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
     }
@@ -477,7 +470,7 @@ struct TodayView: View {
         for note in personalNotes.prefix(6) {
             items.append(RecentNote(item: NoteItem(personal: note), target: .personal(note)))
         }
-        return Array(items.sorted { $0.item.date > $1.item.date }.prefix(6))
+        return Array(items.sorted { $0.item.date > $1.item.date }.prefix(3))
     }
 
     @ViewBuilder
@@ -502,27 +495,23 @@ struct TodayView: View {
                     }
                 }
             } else {
-                // Bleeds to the screen edges so the row scrolls under the page margin.
-                ScrollView(.horizontal) {
-                    LazyHStack(alignment: .top, spacing: Theme.Spacing.m) {
-                        ForEach(notes) { note in
-                            Button {
-                                open(note)
-                            } label: {
-                                StickyNoteCard(item: note.item, size: .mini)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(note.item.stickyAccessibilityLabel)
-                            .accessibilityHint("Opens this note")
-                            .accessibilityAddTraits(.isButton)
+                VStack(spacing: Theme.Spacing.xs) {
+                    ForEach(notes) { note in
+                        Button {
+                            open(note)
+                        } label: {
+                            NoteCard(
+                                item: note.item,
+                                wordCount: note.item.snippet.split(whereSeparator: { $0.isWhitespace }).count
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(note.item.listAccessibilityLabel)
+                        .accessibilityHint("Opens this note")
+                        .accessibilityAddTraits(.isButton)
                     }
-                    .padding(.horizontal, Theme.Spacing.m)
-                    .padding(.vertical, Theme.Spacing.s)
                 }
-                .scrollIndicators(.hidden)
-                .padding(.horizontal, -Theme.Spacing.m)
             }
         }
     }

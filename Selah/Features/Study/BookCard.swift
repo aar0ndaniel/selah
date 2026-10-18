@@ -30,7 +30,6 @@ struct BookCard: View {
     let plan: ReadingPlan
 
     @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 64
 
     private var tone: Tone { plan.cardTone }
@@ -56,15 +55,6 @@ struct BookCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(tone.fill)
-        .overlay(alignment: .leading) {
-            // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
-            if colorScheme == .dark {
-                Rectangle()
-                    .fill(tone.swatch)
-                    .frame(width: 4)
-                    .accessibilityHidden(true)
-            }
-        }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .accessibilityElement(children: .ignore)

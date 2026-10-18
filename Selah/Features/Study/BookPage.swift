@@ -19,7 +19,6 @@ struct BookPage: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var circleSize: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 72
 
@@ -224,12 +223,6 @@ struct BookPage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(tone.fill)
-        .overlay(alignment: .leading) {
-            // Dark mode: every card is the same grey, so a 4pt leading bar carries the book's colour.
-            if colorScheme == .dark {
-                Rectangle().fill(tone.swatch).frame(width: 4).accessibilityHidden(true)
-            }
-        }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 

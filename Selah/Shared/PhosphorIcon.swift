@@ -85,6 +85,7 @@ enum PIcon: String, CaseIterable, Sendable {
     case caretLeft = "caret-left"
     case arrowRight = "arrow-right"
     case arrowLeft = "arrow-left"
+    case funnelSimple = "funnel-simple"
 
     /// Asset catalog name of the regular or fill variant.
     func assetName(filled: Bool = false) -> String {

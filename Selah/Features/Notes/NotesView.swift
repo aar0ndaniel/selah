@@ -1,33 +1,26 @@
 import SwiftUI
 import SwiftData
 
-/// Every note in one place. Board (default): a collage of tilted notes held up by pins, tape and clips on the plain
-/// page, a pinned row on top, then two staggered columns (one at accessibility text sizes). List: rounded rows.
-/// A toolbar button switches between them and the choice is remembered.
+/// Every note in one place, as a list of note cards: pinned first by default, with kind chips and a sort menu.
 ///
 /// Personal notes push a full page on this stack. Study and service notes open their own full-screen editors.
 struct NotesView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     @Query private var entries: [StudyEntry]
     @Query private var services: [Service]
     @Query private var personalNotes: [PersonalNote]
 
-    @AppStorage("notesLayout") private var layoutRaw = NotesLayout.board.rawValue
     @State private var query = ""
     @State private var kind: NoteKind?
+    @State private var sort: NoteSort = .pinnedFirst
     @State private var openNote: PersonalNote?
     @State private var freshNote: PersonalNote?
     @State private var cover: NotesCover?
     @State private var noteToDelete: PersonalNote?
 
-    enum NotesLayout: String {
-        case board, list
-    }
 
-    private var layout: NotesLayout { NotesLayout(rawValue: layoutRaw) ?? .board }
 
     private enum NotesCover: Identifiable {
         case study(StudyEntry, ReadingPlan)
@@ -49,38 +42,19 @@ struct NotesView: View {
             + personalNotes.map { NoteItem(personal: $0) }
     }
 
-    private var visibleSections: (pinned: [NoteItem], others: [NoteItem]) {
-        NotesIndex.sections(NotesIndex.filter(allItems, kind: kind, query: query))
+    private var visibleItems: [NoteItem] {
+        sort.apply(NotesIndex.filter(allItems, kind: kind, query: query))
     }
-
-    private var columnCount: Int { typeSize.isAccessibilitySize ? 1 : 2 }
 
     // MARK: Body
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch layout {
-                case .board: boardPage
-                case .list: listPage
-                }
-            }
+            listPage
             .background { AppBackground() }
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        layoutRaw = (layout == .board ? NotesLayout.list : NotesLayout.board).rawValue
-                    } label: {
-                        Label {
-                            Text(layout == .board ? "List" : "Board")
-                        } icon: {
-                            Image(layout == .board ? "ph-list" : "ph-squares-four")
-                        }
-                    }
-                    .accessibilityLabel(layout == .board ? "Show as list" : "Show as board")
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         router.pendingAction = .newNote
@@ -95,7 +69,7 @@ struct NotesView: View {
                     .accessibilityIdentifier("plus-button")
                 }
             }
-            .sensoryFeedback(.selection, trigger: layoutRaw)
+            .sensoryFeedback(.selection, trigger: sort)
             .navigationDestination(item: $openNote) { note in
                 PersonalNotePage(note: note, isNew: note === freshNote)
             }
@@ -140,11 +114,57 @@ struct NotesView: View {
         }
     }
 
-    private var isEmpty: Bool {
-        let sections = visibleSections
-        return sections.pinned.isEmpty && sections.others.isEmpty
+    private var listPage: some View {
+        let items = visibleItems
+        return List {
+            headerRow(count: items.count)
+                .listRowInsets(EdgeInsets(top: 0, leading: Theme.Spacing.m, bottom: 0, trailing: Theme.Spacing.m))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
+            chips
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
+            if items.isEmpty {
+                emptyState
+                    .padding(.top, Theme.Spacing.xl)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            } else {
+                ForEach(items) { listRow(for: $0) }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
     }
 
+    /// "12 notes" in the accent colour, and a sort menu on the right.
+    private func headerRow(count: Int) -> some View {
+        HStack {
+            Text(count == 1 ? "1 note" : "\(count) notes")
+                .font(.selahLabel)
+                .foregroundStyle(Theme.accent)
+                .accessibilityIdentifier("notes-count")
+            Spacer(minLength: Theme.Spacing.s)
+            Menu {
+                Picker("Sort notes", selection: $sort) {
+                    ForEach(NoteSort.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+            } label: {
+                Image(picon: .funnelSimple)
+                    .frame(minWidth: Theme.minTapTarget, minHeight: Theme.minTapTarget)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Sort notes")
+            .accessibilityValue(sort.title)
+            .accessibilityIdentifier("notes-sort")
+        }
+    }
     @ViewBuilder
     private var emptyState: some View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -169,162 +189,15 @@ struct NotesView: View {
         }
     }
 
-    // MARK: Board
-
-    private var boardPage: some View {
-        let sections = visibleSections
-        return ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                chips
-                if sections.pinned.isEmpty && sections.others.isEmpty {
-                    emptyState
-                        .padding(.top, Theme.Spacing.xl)
-                } else {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        if !sections.pinned.isEmpty {
-                            pinnedRow(sections.pinned)
-                        }
-                        if !sections.others.isEmpty {
-                            board(title: sections.pinned.isEmpty ? nil : "Other notes", items: sections.others)
-                        }
-                    }
-                }
-            }
-        }
-        .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.selahCardTitle)
-            .padding(.horizontal, Theme.Spacing.m)
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    /// Pinned notes: a horizontal row of larger notes.
-    private func pinnedRow(_ items: [NoteItem]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            sectionHeader("Pinned")
-            if items.count == 1, let only = items.first {
-                // A lone pinned note spans the full width instead of leaving the row half empty.
-                boardCard(for: only, size: .full)
-                    .padding(.horizontal, Theme.Spacing.l)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.m)
-            } else {
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: Theme.Spacing.l) {
-                    ForEach(items) { item in
-                        boardCard(for: item, size: .large)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.l)
-                // Room above for the pins and tape, and around for the shadow and the tilt, which the scroll view
-                // would otherwise clip.
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.m)
-            }
-            .scrollIndicators(.hidden)
-            }
-        }
-    }
-
-    /// How far the second column is pushed down, for the staggered look.
-    private static let stagger: Double = 28
-
-    /// The rest: two staggered columns, each new note going to the shortest column. Notes overlap a little at the
-    /// edges (their padding absorbs it), and the room above each note holds its pin, tape or clip.
-    private func board(title: String?, items: [NoteItem]) -> some View {
-        let heights = items.map { StickyStyle.estimatedHeight(for: $0) }
-        let columns = StickyStyle.split(heights: heights, columns: columnCount)
-        let offsets: [Double] = columns.indices.map { $0 % 2 == 1 ? Self.stagger : 0 }
-        // VoiceOver reads top to bottom, as the board looks, not column by column.
-        let order = StickyStyle.readingOrder(columns: columns, heights: heights, columnOffsets: offsets)
-        var priority: [Int: Double] = [:]
-        for (rank, index) in order.enumerated() {
-            priority[index] = Double(order.count - rank)
-        }
-        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            if let title {
-                sectionHeader(title)
-            }
-            HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                ForEach(columns.indices, id: \.self) { column in
-                    LazyVStack(spacing: Theme.Spacing.xs) {
-                        ForEach(columns[column], id: \.self) { index in
-                            boardCard(for: items[index])
-                                .zIndex(Double(index))
-                                .accessibilitySortPriority(priority[index] ?? 0)
-                        }
-                    }
-                    .padding(.top, CGFloat(offsets[column]) + Theme.Spacing.m)
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .padding(.horizontal, Theme.Spacing.m + 4)
-            .padding(.bottom, Theme.Spacing.xs)
-        }
-    }
-
-    private func boardCard(for item: NoteItem, size: BoardNoteCard.Size = .regular) -> some View {
-        tappable(item, accessibilityLabel: item.stickyAccessibilityLabel) {
-            BoardNoteCard(item: item, size: size, richSnippet: richText(for: item))
-        }
-    }
-
     // MARK: List
 
-    private var listPage: some View {
-        let sections = visibleSections
-        return List {
-            chips
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-
-            if sections.pinned.isEmpty && sections.others.isEmpty {
-                emptyState
-                    .padding(.top, Theme.Spacing.xl)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            } else {
-                if !sections.pinned.isEmpty {
-                    Section {
-                        ForEach(sections.pinned) { listRow(for: $0) }
-                    } header: {
-                        listHeader("Pinned")
-                    }
-                }
-                if !sections.others.isEmpty {
-                    Section {
-                        ForEach(sections.others) { listRow(for: $0) }
-                    } header: {
-                        listHeader(sections.pinned.isEmpty ? "All notes" : "Other notes")
-                    }
-                }
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
-    }
-
-    private func listHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.selahCardTitle)
-            .foregroundStyle(.primary)
-            .textCase(nil)
-            .padding(.horizontal, Theme.Spacing.xxs)
-            .accessibilityAddTraits(.isHeader)
-    }
 
     private func listRow(for item: NoteItem) -> some View {
         let rich = richText(for: item)
         let personal = item.kind == .personal ? personalNote(for: item) : nil
         let words = rich?.wordCount ?? item.snippet.split(whereSeparator: { $0.isWhitespace }).count
         return tappable(item, accessibilityLabel: item.listAccessibilityLabel) {
-            NoteListRow(
+            NoteCard(
                 item: item,
                 wordCount: words,
                 highlightCount: rich?.highlightCount ?? 0,
@@ -457,15 +330,9 @@ struct NotesView: View {
     }
 }
 
-#Preview("Board") {
-    NotesView()
-        .environment(AppRouter())
-        .modelContainer(SampleData.container)
-}
 
-#Preview("List") {
-    UserDefaults.standard.set("list", forKey: "notesLayout")
-    return NotesView()
+#Preview {
+    NotesView()
         .environment(AppRouter())
         .modelContainer(SampleData.container)
 }

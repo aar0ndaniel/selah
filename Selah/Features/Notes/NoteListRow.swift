@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// A note in the list view: a rounded card with a tone tile and icon on the left, a serif title, a two-line snippet
-/// and a row of small pills (kind, date, read time, highlights).
-struct NoteListRow: View {
+/// A note card: a rounded card with a coloured tile and glyph on the left, a bold title, a two-line snippet and a row
+/// of small neutral pills (read time, date, highlights). A pinned card has a soft tint and a pin badge on its tile.
+/// Used in the Notes tab, Today's recent notes and search results.
+struct NoteCard: View {
     let item: NoteItem
     /// Words in the whole note, for the read time.
     var wordCount: Int
@@ -10,9 +11,12 @@ struct NoteListRow: View {
     var highlightCount: Int = 0
     var richSnippet: AttributedString? = nil
 
-    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 56
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 72
 
     private var tone: Tone { item.colour.tone }
+    private let radius: CGFloat = 18
 
     private var snippetText: Text? {
         if let rich = richSnippet, rich.hasHighlight {
@@ -26,40 +30,53 @@ struct NoteListRow: View {
         switch item.kind {
         case .study: return .bookOpen
         case .service: return .church
-        case .personal: return .note
+        case .personal: return .notePencil
         }
     }
 
+    /// Normal cards are neutral; a pinned card gets a soft tint (brand tint in light, raised grey in dark).
+    private var cardFill: Color {
+        if item.pinned {
+            return colorScheme == .dark ? Tone.slate.pillFill : Theme.brandFill
+        }
+        return Color(.secondarySystemBackground)
+    }
+
+    private var layout: AnyLayout {
+        typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.s))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.s))
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
+        layout {
             tile
 
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(item.displayTitle)
-                    .font(.selahHeadline)
+                    .font(.selahCardTitle)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
 
                 if let snippetText {
-                    // Not .secondary: that grey is about 4:1 on this card; primary at 78% stays above 4.5:1.
+                    // Not .secondary: that grey is about 4:1 on this card; primary at 70% stays above 4.5:1.
                     snippetText
                         .font(.selahLabel)
-                        .foregroundStyle(.primary.opacity(0.78))
+                        .foregroundStyle(.primary.opacity(0.7))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
                 }
 
                 PillFlowLayout(spacing: Theme.Spacing.xs) {
-                    SelahPill(item.kind.chipTitle, style: .soft(tone))
                     SelahPill(
-                        item.date.formatted(.dateTime.day().month(.abbreviated)),
-                        icon: .calendarBlank,
+                        "\(NotesStyle.readMinutes(wordCount: wordCount)) min",
+                        icon: .clock,
                         style: .neutral
                     )
                     SelahPill(
-                        "\(StickyStyle.readMinutes(wordCount: wordCount)) min read",
-                        icon: .clock,
+                        item.date.formatted(.dateTime.day().month(.abbreviated).year()),
+                        icon: .calendarBlank,
                         style: .neutral
                     )
                     if highlightCount > 0 {
@@ -75,16 +92,26 @@ struct NoteListRow: View {
         }
         .padding(Theme.Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 
+    private var side: CGFloat {
+        // At accessibility sizes the tile stops growing so the text keeps the room.
+        typeSize.isAccessibilitySize ? 56 : min(tileSize, 96)
+    }
+
+    /// Light: the tone's pale fill with a touch of its ink. Dark: the raised grey with the tone at about 22%.
     private var tile: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(tone.pillFill)
-            .frame(width: tileSize, height: tileSize)
             .overlay {
-                PIconView(tileIcon, size: 26, relativeTo: .body)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(colorScheme == .dark ? tone.swatch.opacity(0.22) : tone.ink.opacity(0.10))
+            }
+            .frame(width: side, height: side)
+            .overlay {
+                PIconView(tileIcon, size: 30, relativeTo: .body)
                     .foregroundStyle(tone.ink)
             }
             .overlay(alignment: .topTrailing) {
@@ -126,9 +153,9 @@ extension AttributedString {
     }
 }
 
-#Preview("List rows") {
+#Preview("Note cards") {
     VStack(spacing: Theme.Spacing.s) {
-        NoteListRow(
+        NoteCard(
             item: NoteItem(
                 id: "a", kind: .service, title: "Sermon on hope",
                 snippet: "Hope is an anchor for the soul, sure and steadfast. We hold it when the sea is rough.",
@@ -136,14 +163,14 @@ extension AttributedString {
             ),
             wordCount: 640, highlightCount: 2
         )
-        NoteListRow(
+        NoteCard(
             item: NoteItem(
                 id: "b", kind: .study, title: "Philippians 3 \u{00B7} 12 Oct", snippet: "Pressing on toward the goal.",
                 date: Date(), colour: .sage, pinned: false, verseRefs: []
             ),
             wordCount: 120
         )
-        NoteListRow(
+        NoteCard(
             item: NoteItem(
                 id: "c", kind: .personal, title: "Prayer list", snippet: "",
                 date: Date(), colour: .peach, pinned: false, verseRefs: []
