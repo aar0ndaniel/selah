@@ -40,7 +40,13 @@ jobs:
           name: Selah-iOS-IPA
           path: .build/Selah.ipa
           if-no-files-found: error
+      # Cheap check on every push (~1 min): compile app + tests for the simulator, no boot.
+      - name: Compile tests (no simulator)
+        if: ${{ !(contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch') }}
+        run: xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build-for-testing
+      # Full run (~6 min, boots a simulator): only when the commit message has [test] or on manual runs.
       - name: Simulator unit tests
+        if: ${{ contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch' }}
         run: |
           DEVICE=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
