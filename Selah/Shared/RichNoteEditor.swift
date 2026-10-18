@@ -14,7 +14,9 @@ extension Theme.Palette {
 ///
 /// Built on a UITextView wrapper (`HighlightTextView`) rather than the iOS 26 `TextEditor` with
 /// `AttributedTextSelection`: selection, typing attributes and tap detection are all certain there.
-/// Only words and highlights are kept; other formatting is not supported by this editor.
+/// The keyboard bar (`FormattingToolbar`) adds bold, italic, underline, heading, bulleted and numbered lists and
+/// quote next to Highlight and comment. Formatting is stored in the note's `AttributedString` (see
+/// `RichTextFormatting.swift`) and survives saving and reloading.
 struct RichNoteEditor: View {
     @Binding private var text: AttributedString
     private let owner: NoteOwner

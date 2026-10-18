@@ -1,22 +1,16 @@
 import SwiftUI
 import UIKit
 
-extension NSAttributedString.Key {
-    /// UIKit twin of `HighlightIDAttribute`. Only lives inside the text view; the model keeps `HighlightIDAttribute`.
-    static var selahHighlightID: NSAttributedString.Key {
-        NSAttributedString.Key("selah.highlightID")
-    }
-}
-
 /// Converts between the stored `AttributedString` and the text view's `NSAttributedString`.
-/// It copies words and highlight IDs only, by hand, so nothing depends on automatic attribute bridging.
+///
+/// Both directions go run by run through `RichSegment` (words plus bold, italic, underline, strikethrough, block
+/// style and highlight ID), by hand, so nothing depends on automatic attribute bridging. The text view keeps the
+/// same facts as custom attributes (see `RichTextFormatting.swift`); fonts, colours, underline and paragraph indents
+/// are derived from them in `styled` and are never read back.
 @MainActor
 enum HighlightBridge {
     static var baseAttributes: [NSAttributedString.Key: Any] {
-        [
-            .font: UIFont.preferredFont(forTextStyle: .body),
-            .foregroundColor: UIColor.label
-        ]
+        styledAttributes(for: RichFormat())
     }
 
     static var highlightColor: UIColor {
@@ -24,39 +18,98 @@ enum HighlightBridge {
     }
 
     static func nsAttributedString(from text: AttributedString) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        for segment in HighlightLogic.segments(of: text) {
-            var attributes = baseAttributes
-            if let id = segment.highlightID {
-                attributes[.selahHighlightID] = id
-                attributes[.backgroundColor] = highlightColor
-            }
-            result.append(NSAttributedString(string: segment.string, attributes: attributes))
-        }
-        return result
+        styled(RichTextBridge.model(from: RichTextFormatting.segments(of: text)))
     }
 
-    static func segments(from text: NSAttributedString) -> [HighlightLogic.Segment] {
-        var result: [HighlightLogic.Segment] = []
-        let string = text.string as NSString
-        text.enumerateAttribute(
-            .selahHighlightID,
-            in: NSRange(location: 0, length: text.length),
-            options: []
-        ) { value, range, _ in
-            let piece = string.substring(with: range)
-            let id = value as? String
-            if let last = result.last, last.highlightID == id {
-                result[result.count - 1].string += piece
-            } else {
-                result.append(HighlightLogic.Segment(string: piece, highlightID: id))
-            }
-        }
-        return result
+    static func segments(from text: NSAttributedString) -> [RichSegment] {
+        RichTextBridge.segments(from: text)
     }
 
     static func attributedString(from text: NSAttributedString) -> AttributedString {
-        HighlightLogic.attributedString(from: segments(from: text))
+        RichTextFormatting.attributedString(from: RichTextBridge.segments(from: text))
+    }
+
+    // MARK: Styling
+
+    /// The text with fonts, colours, underline, indents and highlight background derived from its model attributes.
+    static func styled(_ text: NSAttributedString) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let string = NSString(string: text.string)
+        text.enumerateAttributes(in: NSRange(location: 0, length: text.length), options: []) { attributes, range, _ in
+            result.append(
+                NSAttributedString(
+                    string: string.substring(with: range),
+                    attributes: styledAttributes(for: RichFormat(attributes: attributes))
+                )
+            )
+        }
+        return result
+    }
+
+    /// Model attributes plus everything UIKit needs to draw them. Also used for the text view's typing attributes.
+    static func styledAttributes(for format: RichFormat) -> [NSAttributedString.Key: Any] {
+        var result = format.attributes
+        result[.font] = font(for: format)
+        result[.foregroundColor] = (format.block == .quote && format.highlightID == nil)
+            ? UIColor.secondaryLabel
+            : UIColor.label
+        result[.paragraphStyle] = paragraphStyle(for: format.block)
+        if format.underline {
+            result[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if format.strikethrough {
+            result[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if format.highlightID != nil {
+            result[.backgroundColor] = highlightColor
+        }
+        return result
+    }
+
+    /// Body text follows Dynamic Type (preferred font at the current size). Headings are New York semibold at the
+    /// title3 size. A quote is always italic. Bold and italic from the user add on top.
+    static func font(for format: RichFormat) -> UIFont {
+        if format.block == .heading {
+            let base = NavigationAppearance.serifFont(for: .title3, weight: format.bold ? .bold : .semibold)
+            guard format.italic else { return base }
+            let traits = base.fontDescriptor.symbolicTraits.union(.traitItalic)
+            if let descriptor = base.fontDescriptor.withSymbolicTraits(traits) {
+                return UIFont(descriptor: descriptor, size: base.pointSize)
+            }
+            return base
+        }
+        let base = UIFont.preferredFont(forTextStyle: .body)
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if format.bold { traits.insert(.traitBold) }
+        if format.italic || format.block == .quote { traits.insert(.traitItalic) }
+        guard !traits.isEmpty, let descriptor = base.fontDescriptor.withSymbolicTraits(traits) else {
+            return base
+        }
+        return UIFont(descriptor: descriptor, size: base.pointSize)
+    }
+
+    /// Lists hang their wrapped lines under the words, quotes are indented, headings get a little space above.
+    static func paragraphStyle(for block: BlockStyle?) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        guard let block else { return style }
+        let body = UIFont.preferredFont(forTextStyle: .body)
+        switch block {
+        case .bullet:
+            let width = NSString(string: RichTextOps.listPrefix(for: .bullet, number: 1))
+                .size(withAttributes: [.font: body]).width
+            style.headIndent = ceil(width)
+        case .numbered:
+            let width = NSString(string: RichTextOps.listPrefix(for: .numbered, number: 8))
+                .size(withAttributes: [.font: body]).width
+            style.headIndent = ceil(width)
+        case .quote:
+            let indent = UIFontMetrics(forTextStyle: .body).scaledValue(for: 16)
+            style.firstLineHeadIndent = indent
+            style.headIndent = indent
+        case .heading:
+            style.paragraphSpacingBefore = UIFontMetrics(forTextStyle: .title3).scaledValue(for: 4)
+        }
+        return style
     }
 }
 
@@ -66,8 +119,8 @@ struct RevealRequest: Equatable {
     let token = UUID()
 }
 
-/// A self-sizing UITextView with highlight support. It is used because it gives exact control over
-/// selection, typing attributes and tap detection (see RichNoteEditor).
+/// A self-sizing UITextView with rich text support: bold, italic, underline, heading, lists, quote and highlight.
+/// It is used because it gives exact control over selection, typing attributes and tap detection (see RichNoteEditor).
 struct HighlightTextView: UIViewRepresentable {
     @Binding var text: AttributedString
     var placeholder: String
@@ -113,17 +166,21 @@ struct HighlightTextView: UIViewRepresentable {
         coordinator.parent = self
         textView.accessibilityLabel = placeholder
 
-        let wanted = HighlightLogic.segments(of: text)
+        let wanted = RichTextFormatting.segments(of: text)
         let typeSize = context.environment.dynamicTypeSize
         let sizeChanged = coordinator.lastTypeSize != typeSize
         if (wanted != coordinator.lastSegments || sizeChanged) && textView.markedTextRange == nil {
             let selection = textView.selectedRange
+            coordinator.isApplying = true
             textView.attributedText = HighlightBridge.nsAttributedString(from: text)
             let length = textView.attributedText.length
             let location = min(selection.location, length)
             textView.selectedRange = NSRange(location: location, length: min(selection.length, length - location))
-            textView.typingAttributes = HighlightBridge.baseAttributes
+            coordinator.isApplying = false
+            coordinator.emptyBlock = nil
             coordinator.lastSegments = wanted
+            coordinator.syncTypingAttributes(textView)
+            coordinator.updateToolbar(textView)
         }
         coordinator.lastTypeSize = typeSize
 
@@ -144,10 +201,15 @@ struct HighlightTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         var parent: HighlightTextView
         weak var textView: UITextView?
-        var lastSegments: [HighlightLogic.Segment] = []
+        var lastSegments: [RichSegment] = []
         var lastTypeSize: DynamicTypeSize?
         var lastRevealToken: UUID?
-        private var highlightItem: UIBarButtonItem?
+        /// True while the text view is being rewritten by code, so selection callbacks are ignored.
+        var isApplying = false
+        /// A heading or quote switched on for an empty line. There is no character to carry it yet, so the
+        /// coordinator remembers it (and where the caret was) and puts it in the typing attributes.
+        var emptyBlock: (location: Int, style: BlockStyle)?
+        private var toolbar: FormattingToolbar?
 
         init(_ parent: HighlightTextView) {
             self.parent = parent
@@ -155,32 +217,244 @@ struct HighlightTextView: UIViewRepresentable {
 
         // MARK: Keyboard accessory
 
-        func makeAccessory() -> UIToolbar {
-            let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
-            let highlight = UIBarButtonItem(
-                title: "Highlight",
-                style: .plain,
-                target: self,
-                action: #selector(highlightTapped)
-            )
-            highlight.isEnabled = false
-            highlight.accessibilityLabel = "Highlight"
-            highlight.accessibilityHint = "Highlights the selected words and lets you add a comment."
-            highlightItem = highlight
-
-            let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneTapped))
-            done.accessibilityHint = "Closes the keyboard."
-            bar.items = [highlight, UIBarButtonItem(systemItem: .flexibleSpace), done]
-            bar.sizeToFit()
+        func makeAccessory() -> FormattingToolbar {
+            let bar = FormattingToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: FormattingToolbar.barHeight))
+            bar.onAction = { [weak self] action in
+                self?.perform(action)
+            }
+            bar.onDone = { [weak self] in
+                self?.textView?.resignFirstResponder()
+            }
+            toolbar = bar
             return bar
         }
 
-        @objc private func highlightTapped() {
-            highlightSelection()
+        func perform(_ action: FormattingToolbar.Action) {
+            switch action {
+            case .bold: toggleInline(.bold)
+            case .italic: toggleInline(.italic)
+            case .underline: toggleInline(.underline)
+            case .heading: toggleBlock(.heading)
+            case .bullet: toggleBlock(.bullet)
+            case .numbered: toggleBlock(.numbered)
+            case .quote: toggleBlock(.quote)
+            case .highlight: highlightSelection()
+            }
         }
 
-        @objc private func doneTapped() {
-            textView?.resignFirstResponder()
+        /// Which toolbar toggles are on for the current selection (or typing position).
+        private func activeActions(in textView: UITextView) -> Set<FormattingToolbar.Action> {
+            let selection = textView.selectedRange
+            let content = textView.attributedText ?? NSAttributedString()
+            var active: Set<FormattingToolbar.Action> = []
+
+            let typing = RichFormat(attributes: textView.typingAttributes)
+            let inline: [(InlineStyle, FormattingToolbar.Action)] = [
+                (.bold, .bold), (.italic, .italic), (.underline, .underline)
+            ]
+            for (style, action) in inline {
+                let on = selection.length > 0
+                    ? RichTextOps.inlineState(style, in: content, range: selection)
+                    : typing.has(style)
+                if on { active.insert(action) }
+            }
+
+            let blocks: [(BlockStyle, FormattingToolbar.Action)] = [
+                (.heading, .heading), (.bullet, .bullet), (.numbered, .numbered), (.quote, .quote)
+            ]
+            let caret = caretBlock(in: textView)
+            for (style, action) in blocks {
+                let on = selection.length > 0
+                    ? RichTextOps.blockState(style, in: content, selection: selection)
+                    : caret == style
+                if on { active.insert(action) }
+            }
+            return active
+        }
+
+        /// The block style at the caret (from the paragraph, or from `emptyBlock` on an empty line).
+        private func caretBlock(in textView: UITextView) -> BlockStyle? {
+            let selection = textView.selectedRange
+            let content = textView.attributedText ?? NSAttributedString()
+            let string = NSString(string: content.string)
+            guard let paragraph = RichTextOps.paragraphs(
+                in: string,
+                covering: NSRange(location: selection.location, length: 0)
+            ).first else { return nil }
+            if paragraph.length == 0 {
+                return emptyBlock?.location == selection.location ? emptyBlock?.style : nil
+            }
+            return RichTextOps.block(ofParagraph: paragraph, in: content)
+        }
+
+        func updateToolbar(_ textView: UITextView) {
+            toolbar?.update(
+                active: activeActions(in: textView),
+                highlightEnabled: highlightableRange(in: textView) != nil
+            )
+        }
+
+        // MARK: Typing attributes
+
+        /// Keeps the typing attributes right for the caret: no highlight is carried along, and the block style is the
+        /// one of the paragraph the caret is in (an empty line only has `emptyBlock`).
+        func syncTypingAttributes(_ textView: UITextView) {
+            var format = RichFormat(attributes: textView.typingAttributes)
+            format.highlightID = nil
+            let selection = textView.selectedRange
+            if selection.length == 0 {
+                format.block = caretBlock(in: textView)
+            }
+            textView.typingAttributes = HighlightBridge.styledAttributes(for: format)
+        }
+
+        // MARK: Formatting
+
+        private func toggleInline(_ style: InlineStyle) {
+            guard let textView else { return }
+            let selection = textView.selectedRange
+            if selection.length == 0 {
+                // Nothing selected: the style applies to what is typed next.
+                var format = RichFormat(attributes: textView.typingAttributes)
+                format.highlightID = nil
+                format.set(style, !format.has(style))
+                textView.typingAttributes = HighlightBridge.styledAttributes(for: format)
+                updateToolbar(textView)
+                return
+            }
+            let model = NSMutableAttributedString(attributedString: textView.attributedText)
+            RichTextOps.toggleInline(style, in: model, range: selection)
+            apply(model, selection: selection)
+        }
+
+        private func toggleBlock(_ style: BlockStyle) {
+            guard let textView else { return }
+            let selection = textView.selectedRange
+            let model = NSMutableAttributedString(attributedString: textView.attributedText)
+
+            // A heading or quote on an empty line has no character to carry it: remember it for the next typing.
+            if selection.length == 0, !style.isList {
+                let string = NSString(string: model.string)
+                if let paragraph = RichTextOps.paragraphs(in: string, covering: selection).first, paragraph.length == 0 {
+                    if emptyBlock?.location == selection.location, emptyBlock?.style == style {
+                        emptyBlock = nil
+                    } else {
+                        emptyBlock = (location: selection.location, style: style)
+                    }
+                    syncTypingAttributes(textView)
+                    updateToolbar(textView)
+                    return
+                }
+            }
+
+            var wanted = selection
+            RichTextOps.toggleBlock(style, in: model, selection: &wanted)
+            apply(model, selection: wanted)
+        }
+
+        /// Writes `model` into the text view (with fonts), restores the selection, saves to the binding and
+        /// refreshes the toolbar. The undo stack is cleared because code edits would leave it pointing at old ranges.
+        private func apply(_ model: NSMutableAttributedString, selection: NSRange) {
+            guard let textView else { return }
+            var wanted = selection
+            RichTextOps.normalize(model, selection: &wanted)
+            isApplying = true
+            textView.attributedText = HighlightBridge.styled(model)
+            let length = textView.attributedText.length
+            let location = min(wanted.location, length)
+            textView.selectedRange = NSRange(location: location, length: min(wanted.length, length - location))
+            isApplying = false
+            emptyBlock = nil
+            syncTypingAttributes(textView)
+            textView.undoManager?.removeAllActions()
+            let new = commit(textView)
+            parent.onEdit(new)
+            updateToolbar(textView)
+            Task { @MainActor in
+                self.keepCaretVisible(textView)
+            }
+        }
+
+        // MARK: Return and backspace in lists, quotes and headings
+
+        /// Return in a list starts the next item (an empty item ends the list), in a heading starts a plain line,
+        /// in a quote continues the quote (an empty quote line ends it). Returns true when handled here.
+        private func handleReturn(in textView: UITextView, at caret: Int) -> Bool {
+            let content = textView.attributedText ?? NSAttributedString()
+            let string = NSString(string: content.string)
+            guard let paragraph = RichTextOps.paragraphs(
+                in: string,
+                covering: NSRange(location: caret, length: 0)
+            ).first else { return false }
+
+            let found: BlockStyle?
+            if paragraph.length == 0 {
+                found = emptyBlock?.location == caret ? emptyBlock?.style : nil
+            } else {
+                found = RichTextOps.block(ofParagraph: paragraph, in: content)
+            }
+            guard let style = found else { return false }
+
+            let prefix = style.isList ? RichTextOps.prefixLength(of: style, in: string, paragraph: paragraph) : 0
+            let contentStart = paragraph.location + prefix
+            let contentEnd = RichTextOps.contentEnd(of: paragraph, in: string)
+            let model = NSMutableAttributedString(attributedString: content)
+            var selection = NSRange(location: caret, length: 0)
+
+            if contentEnd <= contentStart {
+                if paragraph.length == 0 {
+                    emptyBlock = nil
+                    syncTypingAttributes(textView)
+                    updateToolbar(textView)
+                } else {
+                    RichTextOps.toggleBlock(style, in: model, selection: &selection)
+                    apply(model, selection: selection)
+                }
+                return true
+            }
+
+            switch style {
+            case .bullet, .numbered:
+                let at = max(caret, contentStart)
+                let insertion = NSAttributedString(
+                    string: "\n" + RichTextOps.listPrefix(for: style, number: 1),
+                    attributes: [.selahBlock: style.rawValue]
+                )
+                model.insert(insertion, at: at)
+                apply(model, selection: NSRange(location: at + insertion.length, length: 0))
+                return true
+            case .heading:
+                guard caret >= contentEnd else { return false }
+                let hasTrailingNewline = contentEnd < paragraph.location + paragraph.length
+                model.insert(NSAttributedString(string: "\n", attributes: [.selahBlock: style.rawValue]), at: caret)
+                if hasTrailingNewline {
+                    model.removeAttribute(.selahBlock, range: NSRange(location: caret + 1, length: 1))
+                }
+                apply(model, selection: NSRange(location: caret + 1, length: 0))
+                return true
+            case .quote:
+                return false
+            }
+        }
+
+        /// Backspace right after a list marker removes the marker and the list style (the item becomes a plain line).
+        private func handleBackspace(in textView: UITextView, range: NSRange) -> Bool {
+            let content = textView.attributedText ?? NSAttributedString()
+            let string = NSString(string: content.string)
+            let caret = range.location + range.length
+            guard let paragraph = RichTextOps.paragraphs(
+                in: string,
+                covering: NSRange(location: caret, length: 0)
+            ).first,
+                let style = RichTextOps.block(ofParagraph: paragraph, in: content),
+                style.isList else { return false }
+            let prefix = RichTextOps.prefixLength(of: style, in: string, paragraph: paragraph)
+            guard prefix > 0, caret == paragraph.location + prefix else { return false }
+            let model = NSMutableAttributedString(attributedString: content)
+            var selection = NSRange(location: caret, length: 0)
+            RichTextOps.toggleBlock(style, in: model, selection: &selection)
+            apply(model, selection: selection)
+            return true
         }
 
         // MARK: Highlighting
@@ -210,31 +484,25 @@ struct HighlightTextView: UIViewRepresentable {
 
         func highlightSelection() {
             guard let textView, let range = highlightableRange(in: textView) else { return }
-            let quote = ((textView.text ?? "") as NSString).substring(with: range)
+            let model = NSMutableAttributedString(attributedString: textView.attributedText)
+            // Only the user's words: list markers and line breaks inside the selection are left out.
+            let pieces = RichTextOps.contentRanges(in: model, covering: range)
+            guard !pieces.isEmpty else { return }
+            let string = NSString(string: model.string)
+            let quote = pieces.map { string.substring(with: $0) }.joined(separator: " ")
             let id = HighlightLogic.newID()
-
-            let mutable = NSMutableAttributedString(attributedString: textView.attributedText)
-            mutable.addAttributes(
-                [.selahHighlightID: id, .backgroundColor: HighlightBridge.highlightColor],
-                range: range
-            )
-            textView.attributedText = mutable
-            textView.selectedRange = NSRange(location: range.location + range.length, length: 0)
-            textView.typingAttributes = HighlightBridge.baseAttributes
-            _ = commit(textView)
-            updateHighlightAvailability(textView)
+            for piece in pieces {
+                model.addAttribute(.selahHighlightID, value: id, range: piece)
+            }
+            apply(model, selection: NSRange(location: range.location + range.length, length: 0))
             parent.onHighlight(id, quote)
-        }
-
-        private func updateHighlightAvailability(_ textView: UITextView) {
-            highlightItem?.isEnabled = highlightableRange(in: textView) != nil
         }
 
         /// Copies the text view's content into the binding.
         private func commit(_ textView: UITextView) -> AttributedString {
-            let segments = HighlightBridge.segments(from: textView.attributedText)
+            let segments = RichTextBridge.segments(from: textView.attributedText)
             lastSegments = segments
-            let new = HighlightLogic.attributedString(from: segments)
+            let new = RichTextFormatting.attributedString(from: segments)
             parent.text = new
             return new
         }
@@ -307,19 +575,29 @@ struct HighlightTextView: UIViewRepresentable {
         // MARK: UITextViewDelegate
 
         func textViewDidChange(_ textView: UITextView) {
+            emptyBlock = nil
+            if textView.markedTextRange == nil {
+                // Fix list numbers and prefixes after edits (deleted items, pasted text).
+                let model = NSMutableAttributedString(attributedString: textView.attributedText)
+                var selection = textView.selectedRange
+                if RichTextOps.normalize(model, selection: &selection) {
+                    apply(model, selection: selection)
+                    return
+                }
+            }
             let new = commit(textView)
             parent.onEdit(new)
+            updateToolbar(textView)
             Task { @MainActor in
                 self.keepCaretVisible(textView)
             }
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
-            updateHighlightAvailability(textView)
-            if textView.selectedRange.length == 0 {
-                // Typing next to a highlight must not extend it.
-                textView.typingAttributes = HighlightBridge.baseAttributes
-            }
+            guard !isApplying else { return }
+            // Typing next to a highlight must not extend it; the block style follows the caret.
+            syncTypingAttributes(textView)
+            updateToolbar(textView)
         }
 
         func textView(
@@ -327,7 +605,18 @@ struct HighlightTextView: UIViewRepresentable {
             shouldChangeTextIn range: NSRange,
             replacementText text: String
         ) -> Bool {
-            textView.typingAttributes = HighlightBridge.baseAttributes
+            var typing = textView.typingAttributes
+            typing[.selahHighlightID] = nil
+            typing[.backgroundColor] = nil
+            textView.typingAttributes = typing
+
+            guard textView.markedTextRange == nil else { return true }
+            if text == "\n", range.length == 0, handleReturn(in: textView, at: range.location) {
+                return false
+            }
+            if text.isEmpty, range.length == 1, handleBackspace(in: textView, range: range) {
+                return false
+            }
             return true
         }
 
@@ -336,15 +625,35 @@ struct HighlightTextView: UIViewRepresentable {
             editMenuForTextIn range: NSRange,
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
-            guard highlightableRange(in: textView) != nil else {
+            guard range.length > 0 else {
                 return UIMenu(children: suggestedActions)
             }
-            let action = UIAction(title: "Highlight", image: UIImage(named: "ph-highlighter")) { [weak self] _ in
+            let active = activeActions(in: textView)
+            var extra: [UIMenuElement] = []
+            if highlightableRange(in: textView) != nil {
+                extra.append(menuAction(.highlight, isOn: false))
+            }
+            let formatActions: [FormattingToolbar.Action] = [
+                .bold, .italic, .underline, .heading, .bullet, .numbered, .quote
+            ]
+            let format = UIMenu(
+                title: "Format",
+                image: UIImage(named: PIcon.textB.assetName()),
+                children: formatActions.map { menuAction($0, isOn: active.contains($0)) }
+            )
+            return UIMenu(children: extra + [format] + suggestedActions)
+        }
+
+        private func menuAction(_ action: FormattingToolbar.Action, isOn: Bool) -> UIAction {
+            UIAction(
+                title: action.label,
+                image: UIImage(named: action.icon.assetName()),
+                state: isOn ? .on : .off
+            ) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.highlightSelection()
+                    self?.perform(action)
                 }
             }
-            return UIMenu(children: [action] + suggestedActions)
         }
     }
 }
