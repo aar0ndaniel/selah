@@ -20,7 +20,7 @@ private struct RecentNote: Identifiable {
     let title: String
     let subtitle: String
     let colour: NoteColour
-    let systemImage: String
+    let icon: PIcon
     let date: Date
 }
 
@@ -88,6 +88,7 @@ struct TodayView: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Profile and settings")
+                    .accessibilityIdentifier("profile-button")
                 }
             }
         }
@@ -131,7 +132,7 @@ struct TodayView: View {
     private var verseCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                Label("Verse of the day", systemImage: "quote.opening")
+                PLabel("Verse of the day", icon: .quotes, size: 16, textStyle: .subheadline)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .accessibilityAddTraits(.isHeader)
@@ -310,7 +311,7 @@ struct TodayView: View {
                 title: "\(book) \(entry.chapter)",
                 subtitle: "Study · " + entry.date.formatted(date: .abbreviated, time: .omitted),
                 colour: .mint,
-                systemImage: "book",
+                icon: .bookOpen,
                 date: entry.date
             ))
         }
@@ -321,7 +322,7 @@ struct TodayView: View {
                 title: sermon.isEmpty ? service.gatheringName : sermon,
                 subtitle: "Services · " + service.date.formatted(date: .abbreviated, time: .omitted),
                 colour: .sky,
-                systemImage: "building.columns",
+                icon: .church,
                 date: service.date
             ))
         }
@@ -332,7 +333,7 @@ struct TodayView: View {
                 title: title.isEmpty ? "Untitled note" : title,
                 subtitle: "Personal · " + note.updatedAt.formatted(date: .abbreviated, time: .omitted),
                 colour: note.colour,
-                systemImage: "note.text",
+                icon: .note,
                 date: note.updatedAt
             ))
         }
@@ -369,7 +370,7 @@ struct TodayView: View {
                                 router.selectedTab = .notes
                             } label: {
                                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                                    Image(systemName: note.systemImage)
+                                    PIconView(note.icon, size: 16, relativeTo: .subheadline)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                         .accessibilityHidden(true)

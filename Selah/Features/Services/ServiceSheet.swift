@@ -133,11 +133,9 @@ struct ServiceSheet: View {
                 placeholder: "Sermon message",
                 embedded: true
             )
-            Toggle(
-                "Favourite sermon",
-                systemImage: service.sermonFavourite ? "star.fill" : "star",
-                isOn: $service.sermonFavourite
-            )
+            Toggle(isOn: $service.sermonFavourite) {
+                Label("Favourite sermon", picon: .star, filled: service.sermonFavourite)
+            }
             .frame(minHeight: 44)
         } header: {
             Text("Sermon")
@@ -158,11 +156,9 @@ struct ServiceSheet: View {
                 placeholder: "Class notes",
                 embedded: true
             )
-            Toggle(
-                "Favourite Bible class",
-                systemImage: service.classFavourite ? "star.fill" : "star",
-                isOn: $service.classFavourite
-            )
+            Toggle(isOn: $service.classFavourite) {
+                Label("Favourite Bible class", picon: .star, filled: service.classFavourite)
+            }
             .frame(minHeight: 44)
         } header: {
             Text("Bible class")
@@ -180,7 +176,7 @@ struct ServiceSheet: View {
             Button {
                 addSong()
             } label: {
-                Label("Add a song", systemImage: "plus.circle.fill")
+                PLabel("Add a song", icon: .plusCircle, filled: true)
                     .frame(minHeight: 44, alignment: .leading)
             }
         } header: {
@@ -209,21 +205,21 @@ struct ServiceSheet: View {
                 Button(role: .destructive) {
                     deleteVerse(verse)
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("Delete", picon: .trash)
                 }
             }
             .contextMenu {
                 Button(role: .destructive) {
                     deleteVerse(verse)
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("Delete", picon: .trash)
                 }
             }
         }
         Button {
             pickerPart = part
         } label: {
-            Label("Add a verse", systemImage: "book")
+            PLabel("Add a verse", icon: .book)
                 .frame(minHeight: 44, alignment: .leading)
         }
     }

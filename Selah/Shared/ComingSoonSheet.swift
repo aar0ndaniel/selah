@@ -9,7 +9,7 @@ struct ComingSoonSheet: View {
         NavigationStack {
             EmptyState(
                 title: "Coming soon",
-                systemImage: "hammer",
+                icon: .hammer,
                 message: "This part of Selah is still being built."
             )
             .navigationTitle(title)

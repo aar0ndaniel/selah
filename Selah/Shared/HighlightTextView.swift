@@ -339,7 +339,7 @@ struct HighlightTextView: UIViewRepresentable {
             guard highlightableRange(in: textView) != nil else {
                 return UIMenu(children: suggestedActions)
             }
-            let action = UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in
+            let action = UIAction(title: "Highlight", image: UIImage(named: "ph-highlighter")) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.highlightSelection()
                 }

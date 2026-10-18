@@ -48,11 +48,12 @@ private struct MeetingPreset: Identifiable {
 
 /// Large decorative symbol. Sized with `@ScaledMetric` so it grows with Dynamic Type; hidden from VoiceOver.
 private struct OnboardingIcon: View {
-    let systemName: String
+    let icon: PIcon
     @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 56
 
     var body: some View {
-        Image(systemName: systemName)
+        Image(picon: icon)
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size, alignment: .leading)
@@ -159,7 +160,7 @@ private struct OnboardingPages: View {
     private var welcomePage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                OnboardingIcon(systemName: "book.closed")
+                OnboardingIcon(icon: .book)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Welcome to Selah")
                         .font(.largeTitle.weight(.semibold))
@@ -235,7 +236,7 @@ private struct OnboardingPages: View {
     private var meetingPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                OnboardingIcon(systemName: "calendar")
+                OnboardingIcon(icon: .calendarBlank)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("When do you meet?")
                         .font(.largeTitle.weight(.semibold))
@@ -280,7 +281,7 @@ private struct OnboardingPages: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
-                                Image(systemName: "chevron.right")
+                                PIconView(.caretRight, size: 14, relativeTo: .footnote)
                                     .font(.footnote.weight(.semibold))
                                     .foregroundStyle(.tertiary)
                                     .accessibilityHidden(true)
@@ -297,7 +298,7 @@ private struct OnboardingPages: View {
                     }
 
                     Button(action: addCustomDay) {
-                        Label("Add another day", systemImage: "plus")
+                        PLabel("Add another day", icon: .plus)
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
                     .buttonStyle(.bordered)
@@ -313,7 +314,7 @@ private struct OnboardingPages: View {
     private var finalPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                OnboardingIcon(systemName: "bell.badge")
+                OnboardingIcon(icon: .bellRinging)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Your Bible and reminders")
                         .font(.largeTitle.weight(.semibold))
@@ -334,7 +335,7 @@ private struct OnboardingPages: View {
                                     .foregroundStyle(.primary)
                                 Spacer(minLength: 0)
                                 if profile.translation == translation {
-                                    Image(systemName: "checkmark")
+                                    PIconView(.check, size: 20)
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(.tint)
                                         .accessibilityHidden(true)

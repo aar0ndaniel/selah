@@ -3,6 +3,8 @@ import SwiftUI
 struct ProgressRing: View {
     var progress: Double
     var lineWidth: CGFloat = 8
+    /// Optional tone: the ring is drawn in `tone.ink` on a `tone.fill` track. Default is the accent colour.
+    var tone: Tone? = nil
     var centreLabel: String? = nil
     var accessibilityLabel: String = "Progress"
     var accessibilityValue: String? = nil
@@ -14,15 +16,15 @@ struct ProgressRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.accentColor.opacity(0.2), lineWidth: lineWidth)
+                .stroke(tone?.fill ?? Color.accentColor.opacity(0.2), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: clamped)
-                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(tone?.ink ?? Color.accentColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(reduceMotion ? nil : .smooth, value: clamped)
             if let centreLabel {
                 Text(centreLabel)
-                    .font(.footnote.weight(.semibold))
+                    .font(.selahStatSmall)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .padding(lineWidth + Theme.Spacing.xxs)

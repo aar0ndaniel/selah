@@ -173,7 +173,7 @@ private struct SettingsForm: View {
             NavigationLink {
                 MeetingDaysView()
             } label: {
-                Label("Meeting days", systemImage: "calendar")
+                PLabel("Meeting days", icon: .calendarBlank)
                     .frame(minHeight: 44, alignment: .leading)
             }
         } footer: {
@@ -321,12 +321,12 @@ private struct SettingsForm: View {
             NavigationLink {
                 MonthlySummaryScreen()
             } label: {
-                Label("Export a month", systemImage: "square.and.arrow.up")
+                PLabel("Export a month", icon: .export)
                     .frame(minHeight: 44, alignment: .leading)
             }
             Button(action: backUp) {
                 HStack {
-                    Label(isBackingUp ? "Preparing backup…" : "Back up", systemImage: "icloud.and.arrow.up")
+                    PLabel(isBackingUp ? "Preparing backup…" : "Back up", icon: .cloudArrowUp)
                     if isBackingUp {
                         Spacer()
                         ProgressView()
@@ -338,7 +338,7 @@ private struct SettingsForm: View {
             Button {
                 showImporter = true
             } label: {
-                Label("Restore", systemImage: "icloud.and.arrow.down")
+                PLabel("Restore", icon: .cloudArrowDown)
                     .frame(minHeight: 44, alignment: .leading)
             }
             Button("Delete all data", role: .destructive) {
@@ -346,7 +346,7 @@ private struct SettingsForm: View {
             }
             .frame(minHeight: 44, alignment: .leading)
             if let statusMessage {
-                Label(statusMessage, systemImage: "checkmark.circle")
+                PLabel(statusMessage, icon: .checkCircle)
                     .frame(minHeight: 44, alignment: .leading)
             }
         } header: {

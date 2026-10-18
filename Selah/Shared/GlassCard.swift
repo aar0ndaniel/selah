@@ -1,6 +1,8 @@
 import SwiftUI
 
 /// Hero container: use for at most one element per screen (for example verse of the day).
+/// Glass needs something to refract, so prefer `ToneCard` on the plain page background unless the card sits
+/// over an image or a banner.
 struct GlassCard<Content: View>: View {
     private let content: Content
 
@@ -16,7 +18,8 @@ struct GlassCard<Content: View>: View {
     }
 }
 
-/// Ordinary content card. Flat fill, not glass.
+/// Ordinary content card on the plain page: neutral `secondarySystemBackground`, radius 20, no shadow, not glass.
+/// Looks right on white (light) and on black (dark).
 struct SurfaceCard<Content: View>: View {
     private let content: Content
 
@@ -29,22 +32,70 @@ struct SurfaceCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.m)
             .background(
-                Color(.secondarySystemGroupedBackground),
+                Color(.secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            )
+    }
+}
+
+/// Coloured content card: `tone.fill` background, radius 20, no shadow (the tint is the separation).
+/// Callers choose text colours: `.primary` for body text, `tone.ink` for icons and short labels,
+/// `tone.inkSecondary` for quieter text. Never use system `.secondary` on a tone fill.
+struct ToneCard<Content: View>: View {
+    private let tone: Tone
+    private let padding: CGFloat
+    private let content: Content
+
+    init(tone: Tone, padding: CGFloat = Theme.Spacing.m, @ViewBuilder content: () -> Content) {
+        self.tone = tone
+        self.padding = padding
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(padding)
+            .background(
+                tone.fill,
+                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            )
+    }
+}
+
+extension View {
+    /// Draws the view on a tone-coloured card (same look as `ToneCard`), without wrapping it.
+    func toneCard(_ tone: Tone, padding: CGFloat = Theme.Spacing.m) -> some View {
+        self
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(padding)
+            .background(
+                tone.fill,
                 in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
             )
     }
 }
 
 #Preview {
-    ZStack {
-        AppBackground()
+    ScrollView {
         VStack(spacing: Theme.Spacing.m) {
             GlassCard {
                 Text("The Lord is my shepherd; I shall not want.")
-                    .font(.title3)
+                    .font(.selahVerse)
             }
             SurfaceCard {
                 Text("An ordinary card").font(.headline)
+            }
+            ForEach(Tone.allCases, id: \.self) { tone in
+                ToneCard(tone: tone) {
+                    HStack {
+                        PIconView(.bookOpen, size: 22)
+                            .foregroundStyle(tone.ink)
+                        Text(tone.name).font(.selahHeadline)
+                        Spacer()
+                        Text("Reading").font(.footnote).foregroundStyle(tone.inkSecondary)
+                    }
+                }
             }
         }
         .padding(Theme.Spacing.m)

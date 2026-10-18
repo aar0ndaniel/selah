@@ -44,12 +44,27 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.aarondaniel.selah.tests
 
+  SelahUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - SelahUITests
+    dependencies:
+      - target: Selah
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarondaniel.selah.uitests
+        TEST_TARGET_NAME: Selah
+
 schemes:
   Selah:
     build:
       targets:
         Selah: all
         SelahTests: [test]
+        SelahUITests: [test]
     test:
       targets:
         - SelahTests
+        - SelahUITests

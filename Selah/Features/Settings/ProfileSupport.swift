@@ -105,7 +105,8 @@ struct AvatarView: View {
                     .frame(width: size, height: size)
                     .clipShape(Circle())
             } else {
-                Image(systemName: "person.crop.circle")
+                Image(picon: .userCircle, filled: true)
+                    .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(.tint)

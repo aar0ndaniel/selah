@@ -123,7 +123,7 @@ private struct PersonalNoteForm: View {
                 Button {
                     showVersePicker = true
                 } label: {
-                    Label("Add a verse", systemImage: "plus.circle")
+                    PLabel("Add a verse", icon: .plusCircle)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
             }
@@ -188,7 +188,7 @@ private struct ColourPicker: View {
                     lineWidth: isSelected ? 3 : 1
                 )
                 if isSelected {
-                    Image(systemName: "checkmark")
+                    PIconView(.check, size: 16, relativeTo: .footnote)
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(.primary)
                 }

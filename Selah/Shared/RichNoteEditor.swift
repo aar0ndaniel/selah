@@ -241,7 +241,7 @@ private struct CommentRow: View {
             Menu {
                 actions
             } label: {
-                Image(systemName: "ellipsis.circle")
+                PIconView(.dotsThree, size: 24, relativeTo: .title3)
                     .font(.title3)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
@@ -269,10 +269,10 @@ private struct CommentRow: View {
     @ViewBuilder
     private var actions: some View {
         Button(action: onShow) {
-            Label("Show in note", systemImage: "text.cursor")
+            Label("Show in note", picon: .cursorText)
         }
         Button(role: .destructive, action: onDelete) {
-            Label("Delete comment", systemImage: "trash")
+            Label("Delete comment", picon: .trash)
         }
     }
 }

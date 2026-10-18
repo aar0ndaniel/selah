@@ -17,14 +17,16 @@ enum SampleData {
         NoteComment.self
     ]
 
-    static let container: ModelContainer = makeContainer()
+    static let container: ModelContainer = makeContainer(seeded: true)
 
-    private static func makeContainer() -> ModelContainer {
+    /// A fresh in-memory store. Used by previews (seeded) and by UI-test launches (`-uiTestSampleData` is seeded,
+    /// `-uiTestOnboarding` is empty so the first-launch flow shows).
+    static func makeContainer(seeded: Bool) -> ModelContainer {
         do {
             let schema = Schema(allModels)
             let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             let container = try ModelContainer(for: schema, configurations: [configuration])
-            populate(container.mainContext)
+            if seeded { seed(container.mainContext) }
             return container
         } catch {
             fatalError("Could not create the sample container: \(error)")
@@ -75,9 +77,10 @@ enum SampleData {
         return result
     }
 
-    // MARK: - Populate
+    // MARK: - Seed
 
-    private static func populate(_ context: ModelContext) {
+    /// Fills a context with the sample profile (onboarded), meeting days, books, services and notes.
+    static func seed(_ context: ModelContext) {
         // Profile
         context.insert(UserProfile(
             name: "Daniel",

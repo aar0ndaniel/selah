@@ -44,7 +44,7 @@ struct BookCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if let reminders = StudyActions.remindersText(for: plan) {
-                        Label(reminders, systemImage: "bell")
+                        PLabel(reminders, icon: .bell, size: 14, textStyle: .footnote)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -52,7 +52,7 @@ struct BookCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !typeSize.isAccessibilitySize {
-                    Image(systemName: "chevron.right")
+                    PIconView(.caretRight, size: 14, relativeTo: .footnote)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
@@ -63,6 +63,7 @@ struct BookCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary)
         .accessibilityHint("Opens book details")
+        .accessibilityIdentifier("book-card")
     }
 }
 

@@ -121,9 +121,9 @@ struct BookSheet: View {
     private var remindersSection: some View {
         Section {
             ForEach(sortedReminders) { reminder in
-                Label(
+                PLabel(
                     StudyActions.timeText(hour: reminder.hour, minute: reminder.minute),
-                    systemImage: "bell"
+                    icon: .bell
                 )
                 .frame(minHeight: 44, alignment: .leading)
             }
@@ -182,7 +182,7 @@ struct BookSheet: View {
         } label: {
             VStack(spacing: 0) {
                 if isRead {
-                    Image(systemName: "checkmark")
+                    PIconView(.check, size: 12, relativeTo: .caption2)
                         .font(.caption2.weight(.bold))
                 }
                 Text("\(chapter)")
@@ -214,7 +214,7 @@ struct BookSheet: View {
             Button {
                 showNewEntry = true
             } label: {
-                Label("Write today's entry", systemImage: "square.and.pencil")
+                PLabel("Write today's entry", icon: .notePencil)
                     .frame(minHeight: 44, alignment: .leading)
             }
 

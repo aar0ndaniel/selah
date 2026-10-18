@@ -34,7 +34,7 @@ struct ServicesView: View {
                         Button {
                             showMeetingDays = true
                         } label: {
-                            Image(systemName: "calendar")
+                            Image(picon: .calendarBlank)
                                 .frame(minWidth: 44, minHeight: 44)
                         }
                         .accessibilityLabel("Meeting days")
@@ -175,7 +175,7 @@ struct ServicesView: View {
             Section {
                 EmptyState(
                     title: "No services yet",
-                    systemImage: "building.columns",
+                    icon: .church,
                     message: "Tap the plus button to record today's service.",
                     actionTitle: "New service",
                     action: createServiceForToday
@@ -237,14 +237,14 @@ struct ServicesView: View {
             Button(role: .destructive) {
                 serviceToDelete = service
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("Delete", picon: .trash)
             }
         }
         .contextMenu {
             Button(role: .destructive) {
                 serviceToDelete = service
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("Delete", picon: .trash)
             }
         }
     }
@@ -267,7 +267,7 @@ struct ServicesView: View {
             Section {
                 EmptyState(
                     title: "No favourites yet",
-                    systemImage: "star",
+                    icon: .star,
                     message: "Star a sermon or Bible class in a service to keep it here.",
                     actionTitle: "Show all services",
                     action: { mode = .all }
@@ -360,7 +360,7 @@ private struct MeetingDayChips: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     if days.isEmpty {
                         Button(action: onAdd) {
-                            Label("Add meeting days", systemImage: "plus")
+                            PLabel("Add meeting days", icon: .plus, size: 16, textStyle: .subheadline)
                                 .font(.subheadline)
                                 .padding(.horizontal, Theme.Spacing.m)
                                 .frame(minHeight: 44)

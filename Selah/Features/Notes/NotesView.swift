@@ -115,7 +115,7 @@ struct NotesView: View {
         } else if kind != nil {
             EmptyState(
                 title: "No notes here yet",
-                systemImage: "note.text",
+                icon: .note,
                 message: "Try another filter, or write a note of your own.",
                 actionTitle: "New note",
                 action: { destination = .newPersonal }
@@ -123,7 +123,7 @@ struct NotesView: View {
         } else {
             EmptyState(
                 title: "No notes yet",
-                systemImage: "note.text",
+                icon: .note,
                 message: "Study entries, service notes and your own notes show up here.",
                 actionTitle: "New note",
                 action: { destination = .newPersonal }
@@ -167,12 +167,12 @@ struct NotesView: View {
                     Button {
                         togglePin(personal)
                     } label: {
-                        Label(personal.pinned ? "Unpin" : "Pin", systemImage: personal.pinned ? "pin.slash" : "pin")
+                        Label(personal.pinned ? "Unpin" : "Pin", picon: personal.pinned ? .pushPinSlash : .pushPin)
                     }
                     Button(role: .destructive) {
                         noteToDelete = personal
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("Delete", picon: .trash)
                     }
                 }
                 .accessibilityAction(named: personal.pinned ? "Unpin" : "Pin") { togglePin(personal) }
@@ -252,13 +252,13 @@ private struct StickyNoteCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.xxs) {
-                Label(item.kind.label, systemImage: item.kind.symbol)
+                PLabel(item.kind.label, icon: item.kind.icon, size: 12, textStyle: .caption)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .labelStyle(.titleAndIcon)
                 Spacer(minLength: 0)
                 if item.pinned {
-                    Image(systemName: "pin.fill")
+                    PIconView(.pushPin, filled: true, size: 12, relativeTo: .caption)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -306,11 +306,11 @@ extension NoteKind {
         }
     }
 
-    var symbol: String {
+    var icon: PIcon {
         switch self {
-        case .study: return "book"
-        case .service: return "building.columns"
-        case .personal: return "person"
+        case .study: return .bookOpen
+        case .service: return .church
+        case .personal: return .userCircle
         }
     }
 }

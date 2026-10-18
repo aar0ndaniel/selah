@@ -68,7 +68,7 @@ struct MeetingDaysView: View {
                 Section {
                     EmptyState(
                         title: "No meeting days",
-                        systemImage: "calendar.badge.plus",
+                        icon: .calendarPlus,
                         message: "Add the days you meet, like Sunday worship or Tuesday Bible study.",
                         actionTitle: "Add a meeting day",
                         action: addDay
@@ -101,7 +101,7 @@ struct MeetingDaysView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: addDay) {
-                    Image(systemName: "plus")
+                    Image(picon: .plus)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel("Add meeting day")
@@ -126,7 +126,7 @@ struct MeetingDaysView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
+            PIconView(.caretRight, size: 14, relativeTo: .footnote)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)

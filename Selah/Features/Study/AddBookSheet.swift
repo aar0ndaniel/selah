@@ -120,7 +120,7 @@ struct AddBookSheet: View {
                 }
                 Spacer()
                 if isSelected {
-                    Image(systemName: "checkmark")
+                    PIconView(.check, size: 20)
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
@@ -143,7 +143,7 @@ struct AddBookSheet: View {
                     Text(message)
                         .foregroundStyle(.primary)
                 } icon: {
-                    Image(systemName: "exclamationmark.circle")
+                    PIconView(.warningCircle, size: 16, relativeTo: .footnote)
                         .foregroundStyle(.red)
                 }
                 .font(.footnote)

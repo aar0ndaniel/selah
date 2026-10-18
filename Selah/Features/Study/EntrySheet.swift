@@ -116,7 +116,7 @@ private struct EntryForm: View {
                             Text("Choose a verse")
                         }
                         Spacer()
-                        Image(systemName: "chevron.right")
+                        PIconView(.caretRight, size: 14, relativeTo: .footnote)
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(.tertiary)
                             .accessibilityHidden(true)

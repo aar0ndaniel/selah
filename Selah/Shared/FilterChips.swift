@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Horizontal chip row. Selected chip is tinted glass.
+/// Horizontal chip row. Selected chip is a filled accent capsule; the others are quiet slate pills.
+/// Plain fills, not glass: chips are content controls, and glass is reserved for the navigation layer.
 struct FilterChips<Item: Hashable>: View {
     let items: [Item]
     @Binding var selection: Item
@@ -8,43 +9,36 @@ struct FilterChips<Item: Hashable>: View {
 
     var body: some View {
         ScrollView(.horizontal) {
-            GlassEffectContainer(spacing: Theme.Spacing.xs) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    ForEach(items, id: \.self) { item in
-                        chip(for: item)
-                    }
+            HStack(spacing: Theme.Spacing.xs) {
+                ForEach(items, id: \.self) { item in
+                    chip(for: item)
                 }
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, Theme.Spacing.xxs)
             }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.xxs)
         }
         .scrollIndicators(.hidden)
         .sensoryFeedback(.selection, trigger: selection)
     }
 
-    @ViewBuilder
     private func chip(for item: Item) -> some View {
         let isSelected = item == selection
-        Button {
+        return Button {
             selection = item
         } label: {
-            if isSelected {
-                chipLabel(item, isSelected: true)
-                    .glassEffect(.regular.tint(.accentColor).interactive(), in: .capsule)
-            } else {
-                chipLabel(item, isSelected: false)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-            }
+            Text(title(item))
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color(.systemBackground) : Tone.slate.ink)
+                .padding(.horizontal, Theme.Spacing.m)
+                .frame(minHeight: Theme.minTapTarget)
+                .background(
+                    isSelected ? Color.accentColor : Tone.slate.fill,
+                    in: Capsule()
+                )
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private func chipLabel(_ item: Item, isSelected: Bool) -> some View {
-        Text(title(item))
-            .font(.subheadline.weight(isSelected ? .semibold : .regular))
-            .padding(.horizontal, Theme.Spacing.m)
-            .frame(minHeight: 44)
     }
 }
 
@@ -52,10 +46,7 @@ private struct FilterChipsPreview: View {
     @State private var selection = "All"
 
     var body: some View {
-        ZStack {
-            AppBackground()
-            FilterChips(items: ["All", "Study", "Services", "Personal"], selection: $selection) { $0 }
-        }
+        FilterChips(items: ["All", "Study", "Services", "Personal"], selection: $selection) { $0 }
     }
 }
 

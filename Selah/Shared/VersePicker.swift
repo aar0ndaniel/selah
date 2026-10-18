@@ -72,11 +72,15 @@ struct VersePicker: View {
         } else if let reference = parser.parse(trimmed) {
             let found = passage(for: reference)
             if found.verses.isEmpty {
-                ContentUnavailableView(
-                    "Verse not found",
-                    systemImage: "book.closed",
-                    description: Text("\(reference.displayString) is not in \(translation.rawValue.uppercased()).")
-                )
+                ContentUnavailableView {
+                    Label {
+                        Text("Verse not found")
+                    } icon: {
+                        PIconView(.book, size: 48, relativeTo: .largeTitle)
+                    }
+                } description: {
+                    Text("\(reference.displayString) is not in \(translation.rawValue.uppercased()).")
+                }
             } else {
                 List {
                     Section {

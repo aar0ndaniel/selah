@@ -42,7 +42,7 @@ struct MonthlySummaryView: View {
             if data.isEmpty {
                 EmptyState(
                     title: "No services in \(monthLabel)",
-                    systemImage: "calendar",
+                    icon: .calendarBlank,
                     message: "Services you record this month will be counted here.",
                     actionTitle: onNewService == nil ? nil : "New service for today",
                     action: onNewService
@@ -80,7 +80,7 @@ struct MonthlySummaryView: View {
             Button {
                 shiftMonth(by: -1)
             } label: {
-                Image(systemName: "chevron.left")
+                Image(picon: .caretLeft)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Previous month")
@@ -95,7 +95,7 @@ struct MonthlySummaryView: View {
             Button {
                 shiftMonth(by: 1)
             } label: {
-                Image(systemName: "chevron.right")
+                Image(picon: .caretRight)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Next month")

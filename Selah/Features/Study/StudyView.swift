@@ -123,21 +123,21 @@ struct StudyView: View {
         case .reading:
             EmptyState(
                 title: "Nothing in Reading",
-                systemImage: "book",
+                icon: .bookOpen,
                 message: "Start a book and it shows up here.",
                 actionTitle: "Add a book"
             ) { showAddBook = true }
         case .upNext:
             EmptyState(
                 title: "Nothing in Up next",
-                systemImage: "list.bullet",
+                icon: .listBullets,
                 message: "Add books you plan to read next.",
                 actionTitle: "Add a book"
             ) { showAddBook = true }
         case .done:
             EmptyState(
                 title: "No finished books yet",
-                systemImage: "checkmark.circle",
+                icon: .checkCircle,
                 message: "A book moves here when you read its last chapter.",
                 actionTitle: "Add a book"
             ) { showAddBook = true }

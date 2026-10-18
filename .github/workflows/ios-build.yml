@@ -43,11 +43,11 @@ jobs:
           if-no-files-found: error
       # Cheap check on every push (~1 min): compile app + tests for the simulator, no boot.
       - name: Compile tests (no simulator)
-        if: ${{ !(contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch') }}
+        if: ${{ !(contains(github.event.head_commit.message, '[test]') || contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
         run: xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build-for-testing
-      # Full run (~6 min, boots a simulator): only when the commit message has [test] or on manual runs.
-      - name: Simulator unit tests
-        if: ${{ contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch' }}
+      # Picks and boots an iOS 26 iPhone simulator for the unit tests and/or the screenshot run.
+      - name: Boot simulator
+        if: ${{ contains(github.event.head_commit.message, '[test]') || contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch' }}
         run: |
           DEVICE=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
@@ -59,9 +59,15 @@ jobs:
           sys.exit("no iOS 26 iPhone simulator found")
           ')
           echo "Using simulator $DEVICE"
+          echo "SIM_UDID=$DEVICE" >> "$GITHUB_ENV"
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
-          xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination "platform=iOS Simulator,id=$DEVICE,arch=arm64" -derivedDataPath .build/DerivedData -resultBundlePath .build/SelahTests.xcresult CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -parallel-testing-enabled NO test
+      # Full unit-test run (~6 min): only when the commit message has [test] or on manual runs.
+      # The screenshot UI tests are skipped here; they have their own [shots] step below.
+      - name: Simulator unit tests
+        if: ${{ contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch' }}
+        run: |
+          xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination "platform=iOS Simulator,id=$SIM_UDID,arch=arm64" -derivedDataPath .build/DerivedData -resultBundlePath .build/SelahTests.xcresult CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -parallel-testing-enabled NO -skip-testing:SelahUITests test
       - name: Test summary
         if: ${{ always() && (contains(github.event.head_commit.message, '[test]') || github.event_name == 'workflow_dispatch') }}
         run: |
@@ -80,4 +86,55 @@ jobs:
         with:
           name: test-results
           path: .build/SelahTests.xcresult
+          if-no-files-found: ignore
+      # Screenshots (~4 min): only when the commit message has [shots] or on manual runs.
+      # Runs SelahUITests/ScreenshotTests against sample data and exports every attachment as a PNG.
+      - name: Screenshot UI tests
+        if: ${{ contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 20
+        run: |
+          xcodebuild -quiet -project Selah.xcodeproj -scheme Selah -destination "platform=iOS Simulator,id=$SIM_UDID,arch=arm64" -derivedDataPath .build/DerivedData -resultBundlePath .build/Shots.xcresult CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -parallel-testing-enabled NO -only-testing:SelahUITests test
+      - name: Export screenshots
+        if: ${{ always() && (contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
+        run: |
+          if [ -d .build/Shots.xcresult ]; then
+            xcrun xcresulttool export attachments --path .build/Shots.xcresult --output-path .build/Screenshots
+            # Copy each exported file to a readable name (for example 01-today-light.png) using manifest.json.
+            python3 - <<'PY' || true
+          import json, os, shutil
+          root = ".build/Screenshots"
+          manifest = os.path.join(root, "manifest.json")
+          if os.path.exists(manifest):
+              for test in json.load(open(manifest)):
+                  for att in test.get("attachments", []):
+                      src = os.path.join(root, att.get("exportedFileName", ""))
+                      name = att.get("suggestedHumanReadableName", "")
+                      if os.path.isfile(src) and name:
+                          base, ext = os.path.splitext(name)
+                          # Drop the "_0_<UUID>" suffix Xcode adds.
+                          base = base.split("_0_")[0]
+                          shutil.copyfile(src, os.path.join(root, base + (ext or os.path.splitext(src)[1])))
+          PY
+            ls -l .build/Screenshots
+            xcrun xcresulttool get test-results summary --path .build/Shots.xcresult --compact | python3 -c '
+          import json, sys
+          s = json.load(sys.stdin)
+          print("SHOTS result=%s total=%s passed=%s failed=%s" % (s.get("result"), s.get("totalTestCount"), s.get("passedTests"), s.get("failedTests")))
+          for f in s.get("testFailures", []):
+              print("FAILED:", f.get("testName"), "-", f.get("failureText"))
+          '
+          fi
+      - name: Upload screenshots
+        if: ${{ always() && (contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: screenshots
+          path: .build/Screenshots
+          if-no-files-found: ignore
+      - name: Save screenshot results
+        if: ${{ always() && (contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shots-results
+          path: .build/Shots.xcresult
           if-no-files-found: ignore

@@ -485,19 +485,19 @@ struct ExportMenu: View {
             Button {
                 exportPDF()
             } label: {
-                Label("PDF", systemImage: "doc.richtext")
+                Label("PDF", picon: .filePdf)
             }
             Button {
                 exportText()
             } label: {
-                Label("Plain text", systemImage: "text.alignleft")
+                Label("Plain text", picon: .textAlignLeft)
             }
         } label: {
             HStack(spacing: Theme.Spacing.xs) {
                 if isWorking {
                     ProgressView()
                 } else {
-                    Image(systemName: "square.and.arrow.up")
+                    PIconView(.export, size: 20)
                 }
                 Text(isWorking ? "Preparing…" : title)
             }
