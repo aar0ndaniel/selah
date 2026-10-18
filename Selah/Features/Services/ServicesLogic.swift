@@ -1,7 +1,7 @@
 import Foundation
 
 /// Plain value copy of a meeting day, so the "is today a meeting day" rule needs no SwiftData objects.
-struct MeetingSnapshot: Sendable, Equatable {
+struct ServiceMeetingSnapshot: Sendable, Equatable {
     /// 1 = Sunday ... 7 = Saturday (Calendar weekday).
     var weekday: Int
     var hour: Int
@@ -30,7 +30,7 @@ struct MeetingSnapshot: Sendable, Equatable {
     }
 }
 
-extension MeetingSnapshot {
+extension ServiceMeetingSnapshot {
     @MainActor
     init(_ day: MeetingDay) {
         self.init(
@@ -56,7 +56,7 @@ struct ServiceStub: Sendable, Equatable {
 
 /// What the card at the top of the Services page offers when today is a meeting day.
 struct TodayPrompt: Sendable, Equatable {
-    let meeting: MeetingSnapshot
+    let meeting: ServiceMeetingSnapshot
     /// Name of the gathering ("Sunday worship").
     let name: String
     /// Index (into the `services` array that was passed in) of today's service, when one is already recorded.
@@ -81,7 +81,7 @@ enum ServicesLogic {
     /// service recorded yet wins; if all have one, the earliest meeting is shown and the button opens its service.
     /// A recorded service matches a meeting when it is on the same day with the same gathering name.
     static func todayPrompt(
-        meetings: [MeetingSnapshot],
+        meetings: [ServiceMeetingSnapshot],
         services: [ServiceStub],
         on date: Date,
         calendar: Calendar = .current

@@ -14,7 +14,7 @@ struct ServicesLogicTests {
     }
 
     // 18 October 2026 is a Sunday (weekday 1); 19 October is a Monday.
-    private let sunday = MeetingSnapshot(weekday: 1, hour: 9, minute: 0, name: "Sunday worship")
+    private let sunday = ServiceMeetingSnapshot(weekday: 1, hour: 9, minute: 0, name: "Sunday worship")
 
     @Test func todayIsMeetingDayGivesPrompt() {
         let prompt = ServicesLogic.todayPrompt(
@@ -67,7 +67,7 @@ struct ServicesLogicTests {
     }
 
     @Test func emptyNameFallsBackToWeekday() {
-        let unnamed = MeetingSnapshot(weekday: 1, hour: 18, minute: 30, name: "  ")
+        let unnamed = ServiceMeetingSnapshot(weekday: 1, hour: 18, minute: 30, name: "  ")
         let prompt = ServicesLogic.todayPrompt(
             meetings: [unnamed], services: [], on: date(2026, 10, 18), calendar: calendar
         )
@@ -75,7 +75,7 @@ struct ServicesLogicTests {
     }
 
     @Test func twoMeetingsPicksFirstWithoutAService() {
-        let evening = MeetingSnapshot(weekday: 1, hour: 18, minute: 0, name: "Evening prayer")
+        let evening = ServiceMeetingSnapshot(weekday: 1, hour: 18, minute: 0, name: "Evening prayer")
         let services = [ServiceStub(date: date(2026, 10, 18), gatheringName: "Sunday worship")]
         let prompt = ServicesLogic.todayPrompt(
             meetings: [evening, sunday], services: services, on: date(2026, 10, 18), calendar: calendar
@@ -85,7 +85,7 @@ struct ServicesLogicTests {
     }
 
     @Test func twoMeetingsAllRecordedOpensTheEarliest() {
-        let evening = MeetingSnapshot(weekday: 1, hour: 18, minute: 0, name: "Evening prayer")
+        let evening = ServiceMeetingSnapshot(weekday: 1, hour: 18, minute: 0, name: "Evening prayer")
         let services = [
             ServiceStub(date: date(2026, 10, 18), gatheringName: "Evening prayer"),
             ServiceStub(date: date(2026, 10, 18), gatheringName: "Sunday worship"),

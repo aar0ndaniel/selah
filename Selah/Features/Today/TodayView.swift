@@ -1,27 +1,29 @@
 import SwiftUI
 import SwiftData
 
-private enum TodaySheet: Identifiable {
+/// Full-screen pages Today can open (editors are pages, not sheets).
+private enum TodayCover: Identifiable {
     case entry(ReadingPlan, StudyEntry?)
-    case verse
     case service(Service)
 
     var id: String {
         switch self {
         case .entry(let plan, _): return "entry-\(plan.persistentModelID.hashValue)"
-        case .verse: return "verse"
         case .service(let service): return "service-\(service.persistentModelID.hashValue)"
         }
     }
 }
 
+private enum RecentTarget {
+    case study(StudyEntry, ReadingPlan)
+    case service(Service)
+    case personal(PersonalNote)
+}
+
 private struct RecentNote: Identifiable {
-    let id: String
-    let title: String
-    let subtitle: String
-    let colour: NoteColour
-    let icon: PIcon
-    let date: Date
+    let item: NoteItem
+    let target: RecentTarget
+    var id: String { item.id }
 }
 
 struct TodayView: View {
@@ -35,14 +37,17 @@ struct TodayView: View {
     @Query(sort: \PersonalNote.updatedAt, order: .reverse) private var personalNotes: [PersonalNote]
     @Query private var meetingDays: [MeetingDay]
 
-    @State private var sheet: TodaySheet?
+    @State private var cover: TodayCover?
+    @State private var showVersePicker = false
     @State private var showSettings = false
+    @State private var openNote: PersonalNote?
 
-    @ScaledMetric(relativeTo: .body) private var noteCardWidth: CGFloat = 152
+    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 76
+    @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 68
+    @ScaledMetric(relativeTo: .body) private var barHeight: CGFloat = 72
 
     private var profile: UserProfile? { profiles.first }
     private var translation: Translation { profile?.translation ?? .kjv }
-    private var textSize: Double { profile?.textSize ?? 17 }
 
     private var readingPlans: [ReadingPlan] { plans.filter { $0.status == .reading } }
 
@@ -62,23 +67,55 @@ struct TodayView: View {
         return name.isEmpty ? "Welcome back" : "Hello, \(name)"
     }
 
+    /// Plain values for the streak rules.
+    private var streakInput: StreakInput {
+        var spans: [ReadingSpan] = []
+        for plan in plans where plan.status != .upNext {
+            let dates = plan.entries.map { $0.date }
+            guard let start = plan.startDate ?? dates.min() else { continue }
+            let end: Date? = plan.status == .done ? (plan.finishedDate ?? dates.max() ?? start) : nil
+            spans.append(ReadingSpan(start: start, end: end))
+        }
+        return StreakInput(
+            studyDates: entries.map { $0.date },
+            serviceDates: services.map { $0.date },
+            meetingWeekdays: Set(meetingDays.filter { $0.isActive }.map { $0.weekday }),
+            readingSpans: spans
+        )
+    }
+
+    /// The celebration plays only while Today is really in front of the user.
+    private var streaksAreVisible: Bool {
+        router.selectedTab == .today && cover == nil && !showVersePicker && !showSettings && openNote == nil
+    }
+
+    // MARK: Body
+
     var body: some View {
         let now = Date()
+        let input = streakInput
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header(now: now)
+                    StreakSection(
+                        summary: Streaks.summary(input, today: now),
+                        week: Streaks.week(input, today: now),
+                        today: now,
+                        isActive: streaksAreVisible
+                    )
                     verseCard
                     readingSection(now: now)
                     gatheringSection(now: now)
                     recentNotesSection
+                    weekChartSection(now: now, input: input)
                 }
                 .padding(.horizontal, Theme.Spacing.m)
             }
             .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
             .background { AppBackground() }
             .navigationTitle("Today")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -91,14 +128,18 @@ struct TodayView: View {
                     .accessibilityIdentifier("profile-button")
                 }
             }
+            .navigationDestination(item: $openNote) { note in
+                PersonalNotePage(note: note, isNew: false)
+            }
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
-        .sheet(item: $sheet) { item in
-            switch item {
+        .sheet(isPresented: $showVersePicker) {
+            VersePicker(translation: translation) { setTodayVerse($0) }
+        }
+        .fullScreenCover(item: $cover) { cover in
+            switch cover {
             case .entry(let plan, let entry):
                 EntrySheet(plan: plan, entry: entry)
-            case .verse:
-                VersePicker(translation: translation) { setTodayVerse($0) }
             case .service(let service):
                 ServiceSheet(service: service)
             }
@@ -115,67 +156,111 @@ struct TodayView: View {
 
     private func header(now: Date) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-            Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased())
-                .font(.system(.caption, design: .rounded, weight: .medium))
-                .tracking(1.5)
-                .foregroundStyle(.secondary)
+            Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                .selahEyebrow()
             Text(greeting)
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .font(.selahDisplay)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 
-    // MARK: 1. Verse of the day (the one glass hero)
+    // MARK: Verse of the day
 
     @ViewBuilder
     private var verseCard: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                PLabel("Verse of the day", icon: .quotes, size: 16, textStyle: .subheadline)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
+        if let verse = verseEntryToday?.bestVerse {
+            let reference = "\(verse.reference) (\(verse.translation.shortName))"
+            ToneCard(tone: .sky, padding: Theme.Spacing.l) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    HStack(alignment: .center) {
+                        PIconView(.quotes, filled: true, size: 30, relativeTo: .largeTitle)
+                            .foregroundStyle(Tone.sky.ink)
+                        Spacer(minLength: 0)
+                        Text("Verse of the day")
+                            .font(.selahEyebrow)
+                            .textCase(.uppercase)
+                            .tracking(1.0)
+                            .foregroundStyle(Tone.sky.inkSecondary)
+                            .accessibilityAddTraits(.isHeader)
+                    }
 
-                if let verse = verseEntryToday?.bestVerse {
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                        ScaledVerseText(text: verse.textSnapshot, points: textSize)
+                        Text(verse.textSnapshot)
+                            .font(.selahVerseLarge)
+                            .lineSpacing(4)
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("\(verse.reference) (\(verse.translation.shortName))")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        OnCardPill(text: reference, tone: .sky)
                     }
                     .accessibilityElement(children: .combine)
-                    Button("Change verse") { sheet = .verse }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: 44)
-                } else if readingPlans.isEmpty && plans.isEmpty {
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: Theme.Spacing.s) {
+                            shareButton(text: verse.textSnapshot, reference: reference)
+                            changeVerseButton
+                        }
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            shareButton(text: verse.textSnapshot, reference: reference)
+                            changeVerseButton
+                        }
+                    }
+                }
+            }
+        } else if plans.isEmpty {
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    Text("Verse of the day")
+                        .font(.selahCardTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Start a book in Study first")
                         .font(.body)
-                        .foregroundStyle(.primary)
                     Button("Go to Study") { router.selectedTab = .study }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: 44)
-                } else {
+                        .buttonStyle(.selahSecondary(tone: .sky))
+                }
+            }
+        } else {
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    Text("Verse of the day")
+                        .font(.selahCardTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Pick a verse that spoke to you today.")
                         .font(.body)
-                        .foregroundStyle(.primary)
                     Button("Choose today's verse") {
                         if readingPlans.isEmpty {
                             router.selectedTab = .study
                         } else {
-                            sheet = .verse
+                            showVersePicker = true
                         }
                     }
-                    .buttonStyle(.bordered)
-                    .frame(minHeight: 44)
+                    .buttonStyle(.selahSecondary(tone: .sky))
                 }
             }
         }
     }
 
-    // MARK: 2. Today's reading
+    private func shareButton(text: String, reference: String) -> some View {
+        ShareLink(item: "\(text) \u{2014} \(reference)") {
+            Label("Share", picon: .export)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Tone.sky.ink)
+                .padding(.horizontal, Theme.Spacing.m)
+                .frame(minHeight: Theme.minTapTarget)
+                .background(Color(.systemBackground).opacity(0.6), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Share verse")
+    }
+
+    private var changeVerseButton: some View {
+        Button("Change verse") { showVersePicker = true }
+            .buttonStyle(.selahTertiary)
+    }
+
+    // MARK: Today's reading
 
     @ViewBuilder
     private func readingSection(now: Date) -> some View {
@@ -185,13 +270,12 @@ struct TodayView: View {
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                         Text("No book in progress")
-                            .font(.headline)
+                            .font(.selahHeadline)
                         Text("Start a book in Study and it will show up here each day.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Button("Go to Study") { router.selectedTab = .study }
-                            .buttonStyle(.bordered)
-                            .frame(minHeight: 44)
+                            .buttonStyle(.selahSecondary(tone: .teal))
                     }
                 }
             } else {
@@ -213,44 +297,66 @@ struct TodayView: View {
             plannedDays: plan.plannedDays,
             startDate: plan.startDate
         )
-        if let item = TodaySummary.readingItem(
-            for: snapshot,
-            hasEntryToday: existing != nil,
-            now: now
-        ) {
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                        Text(item.bookName)
-                            .font(.headline)
-                        Text(item.nextText)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                        Text("\(item.dayText) · \(item.paceText)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if let reminders = StudyActions.remindersText(for: plan) {
-                            Text(reminders)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+        if let item = TodaySummary.readingItem(for: snapshot, hasEntryToday: existing != nil, now: now) {
+            let tone = plan.cardTone
+            let total = max(plan.totalChapters, 1)
+            let read = plan.chaptersRead.count
+            ToneCard(tone: tone) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    HStack(alignment: .center, spacing: Theme.Spacing.m) {
+                        ZStack {
+                            Circle().fill(Color(.systemBackground).opacity(0.65))
+                            ProgressRing(
+                                progress: Double(read) / Double(total),
+                                lineWidth: 7,
+                                tone: tone,
+                                centreLabel: "\(read)/\(total)",
+                                accessibilityLabel: "Chapters read",
+                                accessibilityValue: "\(read) of \(total) chapters"
+                            )
+                            .padding(Theme.Spacing.xxs)
+                        }
+                        .frame(width: ringSize, height: ringSize)
+
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                            Text(item.bookName)
+                                .font(.selahCardTitle)
+                                .foregroundStyle(tone.ink)
+                            Text(item.nextText)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            if let reminders = StudyActions.remindersText(for: plan) {
+                                Text(reminders)
+                                    .font(.footnote)
+                                    .foregroundStyle(tone.inkSecondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: Theme.Spacing.xs) {
+                            OnCardPill(text: item.dayText, icon: .calendarBlank, tone: tone)
+                            OnCardPill(text: item.paceText, icon: .bookOpen, tone: tone)
+                        }
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            OnCardPill(text: item.dayText, icon: .calendarBlank, tone: tone)
+                            OnCardPill(text: item.paceText, icon: .bookOpen, tone: tone)
                         }
                     }
-                    .accessibilityElement(children: .combine)
 
                     Button {
-                        sheet = .entry(plan, existing)
+                        cover = .entry(plan, existing)
                     } label: {
-                        Text(item.hasEntryToday ? "Open today's entry" : "Write today's entry")
-                            .frame(maxWidth: .infinity, minHeight: 32)
+                        Text(item.hasEntryToday ? "Open today's note" : "Write today's note")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(.selahPrimaryFull)
                 }
             }
         }
     }
 
-    // MARK: 3. Next gathering
+    // MARK: Next gathering
 
     private func gatheringSection(now: Date) -> some View {
         let slots = meetingDays.map {
@@ -259,91 +365,104 @@ struct TodayView: View {
         let next = TodaySummary.nextGathering(from: slots, now: now)
         return VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             sectionTitle("Next gathering")
-            SurfaceCard {
-                if let next {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                            Text(next.name)
-                                .font(.headline)
-                            Text(next.text)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .accessibilityElement(children: .combine)
-
-                        Button {
-                            if next.isToday {
-                                openServiceNotes(named: next.name, now: now)
-                            } else {
-                                router.selectedTab = .services
-                            }
-                        } label: {
-                            Text(next.isToday ? "Open service notes" : "Go to services")
-                                .frame(maxWidth: .infinity, minHeight: 32)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                    }
-                } else {
+            if let next {
+                gatheringCard(next, now: now)
+            } else {
+                SurfaceCard {
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                         Text("No meeting days yet")
-                            .font(.headline)
+                            .font(.selahHeadline)
                         Text("Add the days you meet in Settings and the next one will show here.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Button("Open settings") { showSettings = true }
-                            .buttonStyle(.bordered)
-                            .frame(minHeight: 44)
+                            .buttonStyle(.selahSecondary(tone: .teal))
                     }
                 }
             }
         }
     }
 
-    // MARK: 4. Recent notes
+    private func gatheringCard(_ next: NextGathering, now: Date) -> some View {
+        let tone = Tone.slate
+        let calendar = Calendar.current
+        let timeText = StudyActions.timeText(
+            hour: calendar.component(.hour, from: next.date),
+            minute: calendar.component(.minute, from: next.date)
+        )
+        let countdown = GatheringCountdown.text(
+            daysAway: GatheringCountdown.daysAway(from: now, to: next.date),
+            todayText: next.text
+        )
+        return ToneCard(tone: tone) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                HStack(alignment: .center, spacing: Theme.Spacing.m) {
+                    // Calendar badge: weekday over day number.
+                    VStack(spacing: 0) {
+                        Text(next.date.formatted(.dateTime.weekday(.abbreviated)))
+                            .font(.caption.weight(.bold))
+                            .textCase(.uppercase)
+                            .tracking(0.8)
+                            .foregroundStyle(Tone.coral.ink)
+                        Text(next.date.formatted(.dateTime.day()))
+                            .font(.selahStat)
+                            .foregroundStyle(.primary)
+                    }
+                    .frame(width: badgeSize, height: badgeSize)
+                    .background(
+                        Color(.systemBackground).opacity(0.7),
+                        in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        Text(next.name)
+                            .font(.selahCardTitle)
+                            .foregroundStyle(.primary)
+                        OnCardPill(text: timeText, icon: .clock, tone: tone)
+                        Text(countdown)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(tone.ink)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(next.name), \(next.date.formatted(.dateTime.weekday(.wide).day().month(.wide))), \(timeText), \(countdown)")
+
+                if next.isToday {
+                    Button("Open service notes") {
+                        openServiceNotes(named: next.name, now: now)
+                    }
+                    .buttonStyle(.selahPrimaryFull)
+                } else {
+                    Button("Go to services") { router.selectedTab = .services }
+                        .buttonStyle(.selahSecondary(tone: .teal, fullWidth: true))
+                }
+            }
+        }
+    }
+
+    // MARK: Recent notes
 
     private var recentNotes: [RecentNote] {
         var items: [RecentNote] = []
-        for entry in entries.prefix(5) {
-            let book = entry.plan?.bookName ?? "Study"
-            items.append(RecentNote(
-                id: "study-\(entry.persistentModelID.hashValue)",
-                title: "\(book) \(entry.chapter)",
-                subtitle: "Study · " + entry.date.formatted(date: .abbreviated, time: .omitted),
-                colour: .mint,
-                icon: .bookOpen,
-                date: entry.date
-            ))
+        for entry in entries.prefix(6) {
+            guard let plan = entry.plan else { continue }
+            items.append(RecentNote(item: NoteItem(study: entry), target: .study(entry, plan)))
         }
-        for service in services.prefix(5) {
-            let sermon = service.sermonTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            items.append(RecentNote(
-                id: "service-\(service.persistentModelID.hashValue)",
-                title: sermon.isEmpty ? service.gatheringName : sermon,
-                subtitle: "Services · " + service.date.formatted(date: .abbreviated, time: .omitted),
-                colour: .sky,
-                icon: .church,
-                date: service.date
-            ))
+        for service in services.prefix(6) {
+            items.append(RecentNote(item: NoteItem(service: service), target: .service(service)))
         }
-        for note in personalNotes.prefix(5) {
-            let title = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            items.append(RecentNote(
-                id: "personal-\(note.persistentModelID.hashValue)",
-                title: title.isEmpty ? "Untitled note" : title,
-                subtitle: "Personal · " + note.updatedAt.formatted(date: .abbreviated, time: .omitted),
-                colour: note.colour,
-                icon: .note,
-                date: note.updatedAt
-            ))
+        for note in personalNotes.prefix(6) {
+            items.append(RecentNote(item: NoteItem(personal: note), target: .personal(note)))
         }
-        return Array(items.sorted { $0.date > $1.date }.prefix(5))
+        return Array(items.sorted { $0.item.date > $1.item.date }.prefix(6))
     }
 
     @ViewBuilder
     private var recentNotesSection: some View {
         let notes = recentNotes
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             sectionTitle("Recent notes")
             if notes.isEmpty {
                 SurfaceCard {
@@ -358,58 +477,91 @@ struct TodayView: View {
                                 router.pendingAction = .newNote
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: 44)
+                        .buttonStyle(.selahSecondary(tone: .teal))
                     }
                 }
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Spacing.s) {
+                // Bleeds to the screen edges so the row scrolls under the page margin.
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: Theme.Spacing.m) {
                         ForEach(notes) { note in
                             Button {
-                                router.selectedTab = .notes
+                                open(note)
                             } label: {
-                                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                                    PIconView(note.icon, size: 16, relativeTo: .subheadline)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityHidden(true)
-                                    Text(note.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(3)
-                                        .multilineTextAlignment(.leading)
-                                    Spacer(minLength: 0)
-                                    Text(note.subtitle)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                }
-                                .padding(Theme.Spacing.s)
-                                .frame(width: noteCardWidth, alignment: .leading)
-                                .frame(minHeight: 112, alignment: .topLeading)
-                                .background(
-                                    note.colour.color,
-                                    in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                                )
+                                StickyNoteCard(item: note.item, size: .mini)
                             }
                             .buttonStyle(.plain)
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("\(note.title), \(note.subtitle)")
-                            .accessibilityHint("Opens your notes")
+                            .accessibilityLabel(note.item.stickyAccessibilityLabel)
+                            .accessibilityHint("Opens this note")
                             .accessibilityAddTraits(.isButton)
                         }
                     }
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .padding(.vertical, Theme.Spacing.s)
                 }
-                .scrollClipDisabled()
+                .scrollIndicators(.hidden)
+                .padding(.horizontal, -Theme.Spacing.m)
+            }
+        }
+    }
+
+    private func open(_ note: RecentNote) {
+        switch note.target {
+        case .study(let entry, let plan):
+            cover = .entry(plan, entry)
+        case .service(let service):
+            cover = .service(service)
+        case .personal(let personal):
+            openNote = personal
+        }
+    }
+
+    // MARK: This week
+
+    private func weekChartSection(now: Date, input: StreakInput) -> some View {
+        let week = Streaks.week(input, today: now)
+        let total = week.reduce(0) { $0 + $1.studyCount }
+        let peak = max(week.map { $0.studyCount }.max() ?? 0, 1)
+        let letters = ["M", "T", "W", "T", "F", "S", "S"]
+        let summary = week.map {
+            "\($0.date.formatted(.dateTime.weekday(.wide))) \($0.studyCount)"
+        }.joined(separator: ", ")
+
+        return VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            sectionTitle("This week")
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    Text(total == 1 ? "1 study so far" : "\(total) studies so far")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    HStack(alignment: .bottom, spacing: Theme.Spacing.xs) {
+                        ForEach(Array(week.enumerated()), id: \.offset) { index, day in
+                            VStack(spacing: Theme.Spacing.xs) {
+                                Text("\(day.studyCount)")
+                                    .font(.selahStatSmall)
+                                    .foregroundStyle(day.studyCount > 0 ? Tone.teal.ink : Color.secondary)
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(Tone.teal.ink.opacity(day.studyCount == 0 ? 0.15 : (day.isToday ? 1 : 0.55)))
+                                    .frame(height: max(barHeight * CGFloat(day.studyCount) / CGFloat(peak), 6))
+                                Text(letters[index % letters.count])
+                                    .font(.footnote.weight(day.isToday ? .bold : .regular))
+                                    .foregroundStyle(day.isToday ? Color.primary : Color.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Studies this week")
+                .accessibilityValue(summary)
             }
         }
     }
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.headline)
+            .font(.selahTitle)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -419,9 +571,9 @@ struct TodayView: View {
         guard router.pendingAction == .writeTodayEntry else { return }
         router.pendingAction = nil
         if let plan = readingPlans.first {
-            sheet = .entry(plan, entryToday(for: plan))
+            cover = .entry(plan, entryToday(for: plan))
         } else {
-            // No book yet: take the user to Study and open its add-a-book sheet.
+            // No book yet: take the user to Study and open its add-a-book page.
             router.selectedTab = .study
             Task { @MainActor in
                 router.pendingAction = .addBook
@@ -459,11 +611,11 @@ struct TodayView: View {
             calendar.isDate($0.date, inSameDayAs: now) && $0.gatheringName == name
         }
         if let existing {
-            sheet = .service(existing)
+            cover = .service(existing)
         } else {
             let service = Service(date: now, gatheringName: name)
             modelContext.insert(service)
-            sheet = .service(service)
+            cover = .service(service)
         }
     }
 }

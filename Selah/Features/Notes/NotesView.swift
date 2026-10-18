@@ -1,7 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// Every note in one place: study notes, service notes and personal notes, as a grid of sticky cards.
+/// Every note in one place, as a board of sticky notes on the plain page: a pinned row on top, then a
+/// two-column grid (one column at accessibility text sizes).
+///
+/// Personal notes push a full page on this stack. Study and service notes open their own full-screen editors.
 struct NotesView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
@@ -13,21 +16,19 @@ struct NotesView: View {
 
     @State private var query = ""
     @State private var kind: NoteKind?
-    @State private var destination: NoteDestination?
+    @State private var openNote: PersonalNote?
+    @State private var freshNote: PersonalNote?
+    @State private var cover: NotesCover?
     @State private var noteToDelete: PersonalNote?
 
-    private enum NoteDestination: Identifiable {
+    private enum NotesCover: Identifiable {
         case study(StudyEntry, ReadingPlan)
         case service(Service)
-        case personal(PersonalNote)
-        case newPersonal
 
         var id: String {
             switch self {
             case .study(let entry, _): return "study-\(entry.persistentModelID.hashValue)"
             case .service(let service): return "service-\(service.persistentModelID.hashValue)"
-            case .personal(let note): return "personal-\(note.persistentModelID.hashValue)"
-            case .newPersonal: return "new-personal"
             }
         }
     }
@@ -44,10 +45,7 @@ struct NotesView: View {
         NotesIndex.sections(NotesIndex.filter(allItems, kind: kind, query: query))
     }
 
-    private var columns: [GridItem] {
-        let count = typeSize.isAccessibilitySize ? 1 : 2
-        return Array(repeating: GridItem(.flexible(), spacing: Theme.Spacing.s, alignment: .top), count: count)
-    }
+    private var columnCount: Int { typeSize.isAccessibilitySize ? 1 : 2 }
 
     // MARK: Body
 
@@ -66,9 +64,17 @@ struct NotesView: View {
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $query, prompt: "Search notes and verses")
+            .navigationDestination(item: $openNote) { note in
+                PersonalNotePage(note: note, isNew: note === freshNote)
+            }
         }
-        .sheet(item: $destination) { destination in
-            sheet(for: destination)
+        .fullScreenCover(item: $cover) { cover in
+            switch cover {
+            case .study(let entry, let plan):
+                EntrySheet(plan: plan, entry: entry)
+            case .service(let service):
+                ServiceSheet(service: service)
+            }
         }
         .confirmationDialog(
             "Delete this note?",
@@ -84,6 +90,14 @@ struct NotesView: View {
         } message: { _ in
             Text("This also removes its verses and comments.")
         }
+        .onChange(of: openNote) { old, new in
+            // The page closed. A new note with nothing written is not kept.
+            if new == nil, let old, old.isBlank {
+                modelContext.delete(old)
+                try? modelContext.save()
+            }
+            if new == nil { freshNote = nil }
+        }
         .onChange(of: router.pendingAction) { _, _ in handlePendingAction() }
         .onAppear { handlePendingAction() }
     }
@@ -97,13 +111,12 @@ struct NotesView: View {
         } else {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 if !sections.pinned.isEmpty {
-                    grid(title: "Pinned", items: sections.pinned)
+                    pinnedRow(sections.pinned)
                 }
                 if !sections.others.isEmpty {
-                    grid(title: sections.pinned.isEmpty ? nil : "Other notes", items: sections.others)
+                    board(title: sections.pinned.isEmpty ? nil : "Other notes", items: sections.others)
                 }
             }
-            .padding(.horizontal, Theme.Spacing.m)
         }
     }
 
@@ -118,7 +131,7 @@ struct NotesView: View {
                 icon: .note,
                 message: "Try another filter, or write a note of your own.",
                 actionTitle: "New note",
-                action: { destination = .newPersonal }
+                action: { createNote() }
             )
         } else {
             EmptyState(
@@ -126,38 +139,74 @@ struct NotesView: View {
                 icon: .note,
                 message: "Study entries, service notes and your own notes show up here.",
                 actionTitle: "New note",
-                action: { destination = .newPersonal }
+                action: { createNote() }
             )
         }
     }
 
-    private func grid(title: String?, items: [NoteItem]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            if let title {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
+    // MARK: Board
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.selahCardTitle)
+            .padding(.horizontal, Theme.Spacing.m)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Pinned notes: a horizontal row of larger notes.
+    private func pinnedRow(_ items: [NoteItem]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            sectionHeader("Pinned")
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: Theme.Spacing.m) {
+                    ForEach(items) { item in
+                        card(for: item, size: .large)
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.m)
+                // Room for the soft shadow and the tilt, which the scroll view would otherwise clip.
+                .padding(.vertical, Theme.Spacing.s)
             }
-            LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.s) {
-                ForEach(items) { item in
-                    card(for: item)
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    /// The rest: masonry-like columns, each new note going to the shortest column.
+    private func board(title: String?, items: [NoteItem]) -> some View {
+        let columns = StickyStyle.split(
+            heights: items.map { StickyStyle.estimatedHeight(for: $0) },
+            columns: columnCount
+        )
+        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            if let title {
+                sectionHeader(title)
+            }
+            HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                ForEach(columns.indices, id: \.self) { column in
+                    LazyVStack(spacing: Theme.Spacing.m) {
+                        ForEach(columns[column], id: \.self) { index in
+                            card(for: items[index])
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
             }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.xs)
         }
     }
 
     @ViewBuilder
-    private func card(for item: NoteItem) -> some View {
+    private func card(for item: NoteItem, size: StickyNoteCard.Size = .regular) -> some View {
         let personal = item.kind == .personal ? personalNote(for: item) : nil
         let button = Button {
             open(item)
         } label: {
-            StickyNoteCard(item: item)
+            StickyNoteCard(item: item, size: size, richSnippet: richText(for: item))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.accessibilityDescription)
+        .accessibilityLabel(item.stickyAccessibilityLabel)
         .accessibilityHint("Opens this note")
         .accessibilityAddTraits(.isButton)
 
@@ -182,26 +231,22 @@ struct NotesView: View {
         }
     }
 
-    // MARK: Sheets
-
-    @ViewBuilder
-    private func sheet(for destination: NoteDestination) -> some View {
-        switch destination {
-        case .study(let entry, let plan):
-            EntrySheet(plan: plan, entry: entry)
-        case .service(let service):
-            ServiceSheet(service: service)
-        case .personal(let note):
-            PersonalNoteSheet(note: note)
-        case .newPersonal:
-            PersonalNoteSheet(note: nil)
-        }
-    }
-
     // MARK: Actions
 
     private func personalNote(for item: NoteItem) -> PersonalNote? {
         personalNotes.first { NoteItem.makeID(.personal, $0) == item.id }
+    }
+
+    /// The note's rich text, so highlights show on the card. Only looked up for cards that are on screen.
+    private func richText(for item: NoteItem) -> AttributedString? {
+        switch item.kind {
+        case .personal:
+            return personalNote(for: item)?.body
+        case .study:
+            return entries.first { NoteItem.makeID(.study, $0) == item.id }?.note
+        case .service:
+            return services.first { NoteItem.makeID(.service, $0) == item.id }?.sermonNote
+        }
     }
 
     private func open(_ item: NoteItem) {
@@ -209,17 +254,25 @@ struct NotesView: View {
         case .study:
             if let entry = entries.first(where: { NoteItem.makeID(.study, $0) == item.id }),
                let plan = entry.plan {
-                destination = .study(entry, plan)
+                cover = .study(entry, plan)
             }
         case .service:
             if let service = services.first(where: { NoteItem.makeID(.service, $0) == item.id }) {
-                destination = .service(service)
+                cover = .service(service)
             }
         case .personal:
             if let note = personalNote(for: item) {
-                destination = .personal(note)
+                openNote = note
             }
         }
+    }
+
+    /// Adds a new empty note to the store and opens its page straight away.
+    private func createNote() {
+        let note = PersonalNote()
+        modelContext.insert(note)
+        freshNote = note
+        openNote = note
     }
 
     private func togglePin(_ note: PersonalNote) {
@@ -237,95 +290,7 @@ struct NotesView: View {
     private func handlePendingAction() {
         guard router.pendingAction == .newNote else { return }
         router.pendingAction = nil
-        destination = .newPersonal
-    }
-}
-
-// MARK: - Sticky card
-
-/// One sticky note. It is content, so it gets a flat colour fill and no glass.
-private struct StickyNoteCard: View {
-    let item: NoteItem
-
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 144
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            HStack(spacing: Theme.Spacing.xxs) {
-                PLabel(item.kind.label, icon: item.kind.icon, size: 12, textStyle: .caption)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .labelStyle(.titleAndIcon)
-                Spacer(minLength: 0)
-                if item.pinned {
-                    PIconView(.pushPin, filled: true, size: 12, relativeTo: .caption)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Text(item.displayTitle)
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.leading)
-                .lineLimit(3)
-            if !item.snippet.isEmpty {
-                Text(item.snippet)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(4)
-            }
-            Spacer(minLength: 0)
-            Text(item.date, format: .dateTime.day().month(.abbreviated).year())
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(Theme.Spacing.m)
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
-        .background(item.colour.color, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-    }
-}
-
-// MARK: - Display helpers
-
-extension NoteKind {
-    var label: String {
-        switch self {
-        case .study: return "Study"
-        case .service: return "Service"
-        case .personal: return "Personal"
-        }
-    }
-
-    var chipTitle: String {
-        switch self {
-        case .study: return "Study"
-        case .service: return "Services"
-        case .personal: return "Personal"
-        }
-    }
-
-    var icon: PIcon {
-        switch self {
-        case .study: return .bookOpen
-        case .service: return .church
-        case .personal: return .userCircle
-        }
-    }
-}
-
-extension NoteItem {
-    var displayTitle: String {
-        title.isEmpty ? "Untitled note" : title
-    }
-
-    var accessibilityDescription: String {
-        var parts = ["\(kind.label) note", displayTitle]
-        if !snippet.isEmpty { parts.append(snippet) }
-        parts.append(date.formatted(.dateTime.day().month(.wide).year()))
-        if pinned { parts.append("Pinned") }
-        return parts.joined(separator: ". ")
+        createNote()
     }
 }
 

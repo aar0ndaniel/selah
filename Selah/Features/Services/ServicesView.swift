@@ -26,7 +26,7 @@ struct ServicesView: View {
     /// The card shown at the top when today is a meeting day.
     private var todayPrompt: TodayPrompt? {
         ServicesLogic.todayPrompt(
-            meetings: meetingDays.map { MeetingSnapshot($0) },
+            meetings: meetingDays.map { ServiceMeetingSnapshot($0) },
             services: services.map { ServiceStub(date: $0.date, gatheringName: $0.gatheringName) },
             on: Date()
         )
