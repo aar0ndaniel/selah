@@ -11,6 +11,7 @@ struct ServicesView: View {
 
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Query(sort: \Service.date, order: .reverse) private var services: [Service]
     @Query private var meetingDays: [MeetingDay]
 
@@ -97,7 +98,7 @@ struct ServicesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     header
-                    MonthlySummaryView(services: services)
+                    MonthlySummaryView(services: services, onNewService: createServiceForToday)
                 }
             }
             .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
@@ -127,13 +128,29 @@ struct ServicesView: View {
                 onSelect: { editingDay = $0 },
                 onAdd: { showMeetingDays = true }
             )
-            Picker("Show", selection: $mode) {
-                ForEach(Mode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Spacing.m)
+            modePicker
+                .padding(.horizontal, Theme.Spacing.m)
+                .sensoryFeedback(.selection, trigger: mode)
+        }
+    }
+
+    /// Segments are too tight for three labels at accessibility text sizes, so they become a menu there.
+    @ViewBuilder
+    private var modePicker: some View {
+        if typeSize.isAccessibilitySize {
+            Picker("Show", selection: $mode) { modeOptions }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Picker("Show", selection: $mode) { modeOptions }
+                .pickerStyle(.segmented)
+        }
+    }
+
+    @ViewBuilder
+    private var modeOptions: some View {
+        ForEach(Mode.allCases) { mode in
+            Text(mode.rawValue).tag(mode)
         }
     }
 
@@ -183,10 +200,16 @@ struct ServicesView: View {
             openService = service
         } label: {
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                HStack(alignment: .firstTextBaseline) {
+                // At accessibility sizes the name and date stack instead of squeezing each other.
+                let titleLayout = typeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xxs))
+                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs))
+                titleLayout {
                     Text(service.gatheringName.isEmpty ? "Service" : service.gatheringName)
                         .font(.headline)
-                    Spacer(minLength: Theme.Spacing.xs)
+                    if !typeSize.isAccessibilitySize {
+                        Spacer(minLength: Theme.Spacing.xs)
+                    }
                     Text(service.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -245,7 +268,9 @@ struct ServicesView: View {
                 EmptyState(
                     title: "No favourites yet",
                     systemImage: "star",
-                    message: "Star a sermon or Bible class in a service to keep it here."
+                    message: "Star a sermon or Bible class in a service to keep it here.",
+                    actionTitle: "Show all services",
+                    action: { mode = .all }
                 )
                 .listRowBackground(Color.clear)
             }
@@ -347,7 +372,8 @@ private struct MeetingDayChips: View {
                             Button {
                                 onSelect(day)
                             } label: {
-                                Text(day.chipLabel)
+                                // "off" is spelled out, not only shown by lighter text.
+                                Text(day.isActive ? day.chipLabel : "\(day.chipLabel) · off")
                                     .font(.subheadline)
                                     .foregroundStyle(day.isActive ? .primary : .secondary)
                                     .padding(.horizontal, Theme.Spacing.m)

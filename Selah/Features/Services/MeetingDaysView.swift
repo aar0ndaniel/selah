@@ -143,7 +143,13 @@ struct MeetingDaysView: View {
     }
 
     private func addDay() {
-        let day = MeetingDay(weekday: 1, hour: 9, minute: 0, name: "New meeting", reminderMinutesBefore: 60)
+        let day = MeetingDay(
+            weekday: 1,
+            hour: 9,
+            minute: 0,
+            name: "New meeting",
+            reminderMinutesBefore: ReminderDefaults.serviceMinutes
+        )
         modelContext.insert(day)
         NotificationScheduler.shared.reschedule(context: modelContext)
         editing = day

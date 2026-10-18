@@ -13,6 +13,7 @@ struct EntrySheet: View {
     @State private var entry: StudyEntry
     @State private var markRead: Bool
     @State private var showVersePicker = false
+    @State private var saveCount = 0
 
     /// Pass nil for `entry` to write a new one.
     init(plan: ReadingPlan, entry: StudyEntry?) {
@@ -52,11 +53,13 @@ struct EntrySheet: View {
                     }
                 }
             }
-            .sheet(isPresented: $showVersePicker) {
-                VersePicker(translation: translation) { verse in
+            // Pushed inside this sheet's stack rather than a second sheet on top.
+            .navigationDestination(isPresented: $showVersePicker) {
+                VersePicker(translation: translation, embedded: true) { verse in
                     StudyActions.setBestVerse(verse, on: entry, in: modelContext)
                 }
             }
+            .sensoryFeedback(.success, trigger: saveCount)
             .onChange(of: markRead) { _, newValue in
                 // Existing entries apply the toggle straight away; new ones apply it on Save.
                 if !isNew {
@@ -69,6 +72,7 @@ struct EntrySheet: View {
 
     private func save() {
         StudyActions.saveNewEntry(entry, to: plan, markRead: markRead, in: modelContext)
+        saveCount += 1
         dismiss()
     }
 }
@@ -79,6 +83,8 @@ private struct EntryForm: View {
     @Binding var markRead: Bool
     @Binding var showVersePicker: Bool
     let onRemoveVerse: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         Form {
@@ -104,7 +110,7 @@ private struct EntryForm: View {
                                 Text(verse.textSnapshot)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                    .lineLimit(3)
+                                    .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
                             }
                         } else {
                             Text("Choose a verse")
@@ -129,7 +135,8 @@ private struct EntryForm: View {
                     text: $entry.note,
                     owner: .study(entry),
                     field: .body,
-                    placeholder: "What I learnt"
+                    placeholder: "What I learnt",
+                    embedded: true
                 )
             }
 

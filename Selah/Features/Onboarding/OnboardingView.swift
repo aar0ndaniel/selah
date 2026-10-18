@@ -46,12 +46,28 @@ private struct MeetingPreset: Identifiable {
     }
 }
 
+/// Large decorative symbol. Sized with `@ScaledMetric` so it grows with Dynamic Type; hidden from VoiceOver.
+private struct OnboardingIcon: View {
+    let systemName: String
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 56
+
+    var body: some View {
+        Image(systemName: systemName)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size, alignment: .leading)
+            .foregroundStyle(.tint)
+            .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Pages
 
 private struct OnboardingPages: View {
     @Bindable var profile: UserProfile
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var days: [MeetingDay]
 
     @State private var page = 0
@@ -112,7 +128,7 @@ private struct OnboardingPages: View {
         VStack(spacing: Theme.Spacing.xs) {
             if page < lastPage {
                 Button {
-                    withAnimation { page += 1 }
+                    withAnimation(reduceMotion ? nil : .default) { page += 1 }
                 } label: {
                     Text("Next")
                         .frame(maxWidth: .infinity, minHeight: 32)
@@ -143,13 +159,11 @@ private struct OnboardingPages: View {
     private var welcomePage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
+                OnboardingIcon(systemName: "book.closed")
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Welcome to Selah")
                         .font(.largeTitle.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
                     Text("A quiet place for your Bible study and your notes from worship services. Everything stays on this iPhone.")
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -196,7 +210,7 @@ private struct OnboardingPages: View {
                 hour: preset.hour,
                 minute: preset.minute,
                 name: preset.name,
-                reminderMinutesBefore: 60
+                reminderMinutesBefore: ReminderDefaults.serviceMinutes
             ))
         } else {
             for day in days where preset.matches(day) {
@@ -207,7 +221,13 @@ private struct OnboardingPages: View {
     }
 
     private func addCustomDay() {
-        let day = MeetingDay(weekday: 1, hour: 9, minute: 0, name: "New meeting", reminderMinutesBefore: 60)
+        let day = MeetingDay(
+            weekday: 1,
+            hour: 9,
+            minute: 0,
+            name: "New meeting",
+            reminderMinutesBefore: ReminderDefaults.serviceMinutes
+        )
         modelContext.insert(day)
         editingDay = day
     }
@@ -215,13 +235,11 @@ private struct OnboardingPages: View {
     private var meetingPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
+                OnboardingIcon(systemName: "calendar")
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("When do you meet?")
                         .font(.largeTitle.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
                     Text("Pick the gatherings you go to. Today will show the next one, and you can change this later.")
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -295,13 +313,11 @@ private struct OnboardingPages: View {
     private var finalPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                Image(systemName: "bell.badge")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
+                OnboardingIcon(systemName: "bell.badge")
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Your Bible and reminders")
                         .font(.largeTitle.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
                     Text("Choose the translation you read most. You can switch any time in Settings.")
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -335,6 +351,7 @@ private struct OnboardingPages: View {
                         .accessibilityAddTraits(profile.translation == translation ? .isSelected : [])
                     }
                 }
+                .sensoryFeedback(.selection, trigger: profile.translation)
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text("Gentle reminders")

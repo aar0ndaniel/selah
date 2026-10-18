@@ -42,6 +42,9 @@ struct StudyView: View {
 
     private var visiblePlans: [ReadingPlan] { plans(in: segment) }
 
+    /// Goes up when a book is finished, so finishing a book gives a success haptic wherever it happens.
+    private var doneCount: Int { plans.filter { $0.status == .done }.count }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -67,6 +70,8 @@ struct StudyView: View {
             .navigationTitle("Study")
             .navigationBarTitleDisplayMode(.large)
         }
+        .sensoryFeedback(.selection, trigger: segment)
+        .sensoryFeedback(.success, trigger: doneCount) { old, new in new > old }
         .sheet(item: $selectedPlan, onDismiss: deletePendingPlan) { plan in
             BookSheet(plan: plan) { planToDelete = $0 }
         }

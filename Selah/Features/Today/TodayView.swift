@@ -134,14 +134,18 @@ struct TodayView: View {
                 Label("Verse of the day", systemImage: "quote.opening")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
 
                 if let verse = verseEntryToday?.bestVerse {
-                    ScaledVerseText(text: verse.textSnapshot, points: textSize)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(verse.reference) (\(verse.translation.shortName))")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        ScaledVerseText(text: verse.textSnapshot, points: textSize)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(verse.reference) (\(verse.translation.shortName))")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
                     Button("Change verse") { sheet = .verse }
                         .buttonStyle(.bordered)
                         .frame(minHeight: 44)
@@ -342,9 +346,20 @@ struct TodayView: View {
             sectionTitle("Recent notes")
             if notes.isEmpty {
                 SurfaceCard {
-                    Text("Notes you write will show up here.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        Text("Notes you write will show up here.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button("Write a note") {
+                            router.selectedTab = .notes
+                            // The Notes tab may not exist yet; hand the + action over once it does.
+                            Task { @MainActor in
+                                router.pendingAction = .newNote
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(minHeight: 44)
+                    }
                 }
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {

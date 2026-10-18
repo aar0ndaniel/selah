@@ -21,6 +21,8 @@ extension ServiceSnapshot {
 /// The Monthly segment: a month switcher and the counts, lists and rankings for that month.
 struct MonthlySummaryView: View {
     let services: [Service]
+    /// Offered from the empty state when the screen can create a service (not from Settings).
+    var onNewService: (() -> Void)? = nil
 
     @State private var month = MonthlySummary.monthStart(for: Date())
 
@@ -41,7 +43,9 @@ struct MonthlySummaryView: View {
                 EmptyState(
                     title: "No services in \(monthLabel)",
                     systemImage: "calendar",
-                    message: "Services you record this month will be counted here."
+                    message: "Services you record this month will be counted here.",
+                    actionTitle: onNewService == nil ? nil : "New service for today",
+                    action: onNewService
                 )
             } else {
                 HStack {

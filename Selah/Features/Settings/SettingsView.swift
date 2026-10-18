@@ -51,10 +51,11 @@ private struct SettingsForm: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var typeSize
 
-    /// Minutes after midnight. Phase 9 uses these as defaults when scheduling.
-    @AppStorage("defaultReadingMinutes") private var defaultReadingMinutes = 7 * 60
-    @AppStorage("defaultServiceReminderMinutes") private var defaultServiceReminderMinutes = 60
+    /// Minutes after midnight. New books and new meeting days start from these (see `ReminderDefaults`).
+    @AppStorage(ReminderDefaults.readingKey) private var defaultReadingMinutes = ReminderDefaults.fallbackReadingMinutes
+    @AppStorage(ReminderDefaults.serviceKey) private var defaultServiceReminderMinutes = ReminderDefaults.fallbackServiceMinutes
 
     @State private var photoItem: PhotosPickerItem?
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -67,6 +68,8 @@ private struct SettingsForm: View {
     @State private var noticeTitle = ""
     @State private var noticeMessage = ""
     @State private var showNotice = false
+    /// Good news (a restore worked) shows inline in Data; only failures use an alert.
+    @State private var statusMessage: String?
 
     private static let reminderOptions = [0, 15, 30, 60, 120]
 
@@ -128,6 +131,7 @@ private struct SettingsForm: View {
             ShareSheet(items: item.items)
                 .presentationDetents([.medium, .large])
         }
+        .sensoryFeedback(.success, trigger: statusMessage) { _, new in new != nil }
         .alert(noticeTitle, isPresented: $showNotice) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -290,12 +294,23 @@ private struct SettingsForm: View {
 
     private var appearanceSection: some View {
         Section("Appearance") {
-            Picker("Appearance", selection: $profile.appearance) {
-                ForEach(Appearance.allCases, id: \.self) { appearance in
-                    Text(appearance.title).tag(appearance)
-                }
+            if typeSize.isAccessibilitySize {
+                Picker("Appearance", selection: $profile.appearance) { appearanceOptions }
+                    .pickerStyle(.menu)
+                    .frame(minHeight: 44)
+                    .sensoryFeedback(.selection, trigger: profile.appearance)
+            } else {
+                Picker("Appearance", selection: $profile.appearance) { appearanceOptions }
+                    .pickerStyle(.segmented)
+                    .sensoryFeedback(.selection, trigger: profile.appearance)
             }
-            .pickerStyle(.segmented)
+        }
+    }
+
+    @ViewBuilder
+    private var appearanceOptions: some View {
+        ForEach(Appearance.allCases, id: \.self) { appearance in
+            Text(appearance.title).tag(appearance)
         }
     }
 
@@ -330,6 +345,10 @@ private struct SettingsForm: View {
                 showReset = true
             }
             .frame(minHeight: 44, alignment: .leading)
+            if let statusMessage {
+                Label(statusMessage, systemImage: "checkmark.circle")
+                    .frame(minHeight: 44, alignment: .leading)
+            }
         } header: {
             Text("Data")
         } footer: {
@@ -390,7 +409,9 @@ private struct SettingsForm: View {
         do {
             let counts = try BackupService.restore(backup, into: modelContext)
             NotificationScheduler.shared.reschedule(context: modelContext)
-            notice("Backup restored", "Restored \(counts.summary).")
+            let message = "Backup restored: \(counts.summary)."
+            statusMessage = message
+            AccessibilityNotification.Announcement(message).post()
         } catch {
             notice("Couldn't restore", error.localizedDescription)
         }
@@ -428,6 +449,7 @@ private struct SettingsForm: View {
     }
 
     private func resetAll() {
+        statusMessage = nil
         deleteAll(ReadingPlan.self)
         deleteAll(StudyEntry.self)
         deleteAll(Service.self)

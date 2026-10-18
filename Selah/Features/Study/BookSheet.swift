@@ -18,7 +18,7 @@ struct BookSheet: View {
     @State private var confirmDelete = false
 
     private static func defaultReminderTime() -> Date {
-        Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+        ReminderDefaults.readingTime()
     }
 
     private var sortedReminders: [ReadingReminder] {
@@ -190,7 +190,8 @@ struct BookSheet: View {
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
             }
-            .foregroundStyle(isRead ? Color.white : Color.primary)
+            // Deep teal in light mode, bright teal in dark mode: the surface colour keeps the tick readable in both.
+            .foregroundStyle(isRead ? Color(.systemBackground) : Color.primary)
             .frame(width: circleSize, height: circleSize)
             .background(
                 Circle().fill(isRead ? Color.accentColor : Color(.tertiarySystemFill))

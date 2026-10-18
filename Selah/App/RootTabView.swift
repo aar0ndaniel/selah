@@ -1,11 +1,15 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct RootTabView: View {
     @State private var router = AppRouter()
     @Query private var profiles: [UserProfile]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The floating + button would sit on top of the keyboard (for example while searching Notes), so it steps aside.
+    @State private var keyboardVisible = false
 
     private var appearance: ColorScheme? { profiles.first?.appearance.colorScheme }
 
@@ -37,6 +41,16 @@ struct RootTabView: View {
             PlusButton()
                 .padding(.trailing, Theme.Spacing.m)
                 .padding(.bottom, 72)
+                .opacity(keyboardVisible ? 0 : 1)
+                .allowsHitTesting(!keyboardVisible)
+                .accessibilityHidden(keyboardVisible)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: keyboardVisible)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardVisible = false
         }
         .fullScreenCover(isPresented: showOnboarding) {
             OnboardingView()

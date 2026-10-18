@@ -1,12 +1,23 @@
 import SwiftUI
 
-/// A sheet for finding a passage by typing a reference. Tap a result to hand back a `VerseRef`.
+/// Finds a passage by typing a reference. Tap a result to hand back a `VerseRef`.
+///
+/// By default it is a sheet with its own navigation stack. With `embedded: true` it has no stack of its own,
+/// so it can be pushed inside a sheet that already has one (no sheet on top of a sheet).
 struct VersePicker: View {
     let translation: Translation
+    let embedded: Bool
     let onPick: (VerseRef) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var query = ""
+
+    init(translation: Translation, embedded: Bool = false, onPick: @escaping (VerseRef) -> Void) {
+        self.translation = translation
+        self.embedded = embedded
+        self.onPick = onPick
+    }
 
     private let parser = ReferenceParser()
 
@@ -25,24 +36,32 @@ struct VersePicker: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Add a verse")
-                .navigationBarTitleDisplayMode(.inline)
-                .searchable(
-                    text: $query,
-                    placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "John 3:16 or Psalm 23"
-                )
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
+        if embedded {
+            picker
+        } else {
+            NavigationStack {
+                picker
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { dismiss() }
+                        }
                     }
-                }
+            }
+            .presentationDetents([.medium, .large])
         }
-        .presentationDetents([.medium, .large])
+    }
+
+    private var picker: some View {
+        content
+            .navigationTitle("Add a verse")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "John 3:16 or Psalm 23"
+            )
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
     }
 
     @ViewBuilder
@@ -118,7 +137,7 @@ struct VersePicker: View {
                     Text(passage.text)
                         .font(.body)
                         .foregroundStyle(.secondary)
-                        .lineLimit(query.isEmpty ? 2 : nil)
+                        .lineLimit(query.isEmpty && !typeSize.isAccessibilitySize ? 2 : nil)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

@@ -7,6 +7,7 @@ struct ServiceSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Query private var meetingDays: [MeetingDay]
     @Query private var profiles: [UserProfile]
 
@@ -14,6 +15,7 @@ struct ServiceSheet: View {
     /// True while the gathering type is "Other" and the name is typed by hand.
     @State private var isOther = false
     @State private var didSetUp = false
+    @State private var doneCount = 0
 
     private static let otherTag = "__other__"
 
@@ -60,6 +62,8 @@ struct ServiceSheet: View {
                 songsSection
             }
             .scrollDismissesKeyboard(.interactively)
+            .scrollContentBackground(.hidden)
+            .background { AppBackground() }
             .navigationTitle(service.gatheringName.isEmpty ? "Service" : service.gatheringName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -67,14 +71,19 @@ struct ServiceSheet: View {
                     EditButton()
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        doneCount += 1
+                        dismiss()
+                    }
                 }
             }
-            .sheet(isPresented: pickerIsPresented) {
-                VersePicker(translation: translation) { ref in
+            // Pushed inside this sheet's stack rather than a second sheet on top.
+            .navigationDestination(isPresented: pickerIsPresented) {
+                VersePicker(translation: translation, embedded: true) { ref in
                     addVerse(ref)
                 }
             }
+            .sensoryFeedback(.success, trigger: doneCount)
             .onAppear {
                 guard !didSetUp else { return }
                 didSetUp = true
@@ -121,7 +130,8 @@ struct ServiceSheet: View {
                 text: $service.sermonNote,
                 owner: .service(service),
                 field: .sermon,
-                placeholder: "Sermon message"
+                placeholder: "Sermon message",
+                embedded: true
             )
             Toggle(
                 "Favourite sermon",
@@ -145,7 +155,8 @@ struct ServiceSheet: View {
                 text: $service.classNote,
                 owner: .service(service),
                 field: .bibleClass,
-                placeholder: "Class notes"
+                placeholder: "Class notes",
+                embedded: true
             )
             Toggle(
                 "Favourite Bible class",
@@ -189,7 +200,7 @@ struct ServiceSheet: View {
                     Text(verse.textSnapshot)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -261,11 +272,18 @@ struct ServiceSheet: View {
 private struct SongRow: View {
     @Bindable var song: Song
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var numberWidth: CGFloat = 96
+
     var body: some View {
-        HStack(spacing: Theme.Spacing.s) {
+        // At accessibility sizes the two fields stack so neither placeholder is cut off.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.s))
+        layout {
             TextField("Hymn number", text: $song.hymnNumber)
                 .keyboardType(.numbersAndPunctuation)
-                .frame(width: 96)
+                .frame(width: typeSize.isAccessibilitySize ? nil : numberWidth)
                 .accessibilityLabel("Hymn number")
             TextField("Song title", text: $song.title)
                 .textInputAutocapitalization(.words)

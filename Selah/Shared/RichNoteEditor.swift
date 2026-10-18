@@ -20,6 +20,9 @@ struct RichNoteEditor: View {
     private let owner: NoteOwner
     private let field: CommentField
     private let placeholder: String
+    /// True when the editor sits inside a Form or List row that already draws a card:
+    /// no second card and no extra padding, so it does not look like a card in a card.
+    private let embedded: Bool
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,12 +38,14 @@ struct RichNoteEditor: View {
         text: Binding<AttributedString>,
         owner: NoteOwner,
         field: CommentField,
-        placeholder: String = "Write your note"
+        placeholder: String = "Write your note",
+        embedded: Bool = false
     ) {
         self._text = text
         self.owner = owner
         self.field = field
         self.placeholder = placeholder
+        self.embedded = embedded
     }
 
     var body: some View {
@@ -85,11 +90,13 @@ struct RichNoteEditor: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(Theme.Spacing.s)
-        .background(
-            Color(.secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-        )
+        .padding(embedded ? 0 : Theme.Spacing.s)
+        .background {
+            if !embedded {
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            }
+        }
     }
 
     // MARK: Comments
@@ -125,6 +132,7 @@ struct RichNoteEditor: View {
                     comment: comment,
                     isEmphasized: emphasizedID == comment.highlightID,
                     reduceMotion: reduceMotion,
+                    baseColor: embedded ? Color(.tertiarySystemGroupedBackground) : Color(.secondarySystemGroupedBackground),
                     onShow: { revealRequest = RevealRequest(id: comment.highlightID) },
                     onDelete: { delete(comment) }
                 )
@@ -210,6 +218,7 @@ private struct CommentRow: View {
     let comment: NoteComment
     let isEmphasized: Bool
     let reduceMotion: Bool
+    let baseColor: Color
     let onShow: () -> Void
     let onDelete: () -> Void
 
@@ -242,7 +251,7 @@ private struct CommentRow: View {
         .padding(.leading, Theme.Spacing.s)
         .padding(.vertical, Theme.Spacing.xs)
         .background(
-            isEmphasized ? Theme.Palette.highlightMint : Color(.secondarySystemGroupedBackground),
+            isEmphasized ? Theme.Palette.highlightMint : baseColor,
             in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
         )
         .overlay(

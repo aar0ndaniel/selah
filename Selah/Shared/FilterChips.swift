@@ -19,6 +19,7 @@ struct FilterChips<Item: Hashable>: View {
             }
         }
         .scrollIndicators(.hidden)
+        .sensoryFeedback(.selection, trigger: selection)
     }
 
     @ViewBuilder

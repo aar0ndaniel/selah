@@ -158,6 +158,7 @@ struct NotesView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.accessibilityDescription)
+        .accessibilityHint("Opens this note")
         .accessibilityAddTraits(.isButton)
 
         if let personal {

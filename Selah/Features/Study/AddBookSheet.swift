@@ -15,8 +15,9 @@ struct AddBookSheet: View {
     @State private var reminderTime = AddBookSheet.defaultReminderTime()
     @State private var addedCount = 0
 
+    /// Starts from the default reading time set in Settings.
     private static func defaultReminderTime() -> Date {
-        Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+        ReminderDefaults.readingTime()
     }
 
     private var filteredBooks: [String] {
@@ -78,6 +79,8 @@ struct AddBookSheet: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
             .sensoryFeedback(.success, trigger: addedCount)
+            .sensoryFeedback(.selection, trigger: selectedBook)
+            .sensoryFeedback(.selection, trigger: length)
         }
         .presentationDetents([.large])
     }
@@ -135,26 +138,36 @@ struct AddBookSheet: View {
     private var actionBar: some View {
         VStack(spacing: Theme.Spacing.xs) {
             if let message = duplicateMessage {
-                Label(message, systemImage: "exclamationmark.circle")
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Red icon plus plain text: the warning is not colour alone, and the text keeps full contrast.
+                Label {
+                    Text(message)
+                        .foregroundStyle(.primary)
+                } icon: {
+                    Image(systemName: "exclamationmark.circle")
+                        .foregroundStyle(.red)
+                }
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button {
-                add(startNow: true)
-            } label: {
-                Text("Start today")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.glassProminent)
+            GlassEffectContainer(spacing: Theme.Spacing.xs) {
+                VStack(spacing: Theme.Spacing.xs) {
+                    Button {
+                        add(startNow: true)
+                    } label: {
+                        Text("Start today")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.glassProminent)
 
-            Button {
-                add(startNow: false)
-            } label: {
-                Text("Add to Up next")
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    Button {
+                        add(startNow: false)
+                    } label: {
+                        Text("Add to Up next")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.glass)
+                }
             }
-            .buttonStyle(.glass)
         }
         .disabled(selectedBook == nil || duplicateMessage != nil)
         .padding(.horizontal, Theme.Spacing.m)

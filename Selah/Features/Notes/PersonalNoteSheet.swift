@@ -12,6 +12,7 @@ struct PersonalNoteSheet: View {
     @State private var note: PersonalNote
     @State private var didSetUp = false
     @State private var isRemoved = false
+    @State private var doneCount = 0
 
     /// Pass nil to write a new note.
     init(note: PersonalNote?) {
@@ -33,9 +34,13 @@ struct PersonalNoteSheet: View {
                         }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
+                        Button("Done") {
+                            doneCount += 1
+                            dismiss()
+                        }
                     }
                 }
+                .sensoryFeedback(.success, trigger: doneCount)
         }
         .presentationDetents([.large])
         .onAppear {
@@ -76,6 +81,7 @@ private struct PersonalNoteForm: View {
     @Bindable var note: PersonalNote
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Query private var profiles: [UserProfile]
     @State private var showVersePicker = false
 
@@ -104,7 +110,7 @@ private struct PersonalNoteForm: View {
                             Text(verse.textSnapshot)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(3)
+                                .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -133,8 +139,9 @@ private struct PersonalNoteForm: View {
                 .listRowBackground(Color.clear)
             }
         }
-        .sheet(isPresented: $showVersePicker) {
-            VersePicker(translation: translation) { ref in
+        // Pushed inside this sheet's stack rather than a second sheet on top.
+        .navigationDestination(isPresented: $showVersePicker) {
+            VersePicker(translation: translation, embedded: true) { ref in
                 ref.part = .none
                 modelContext.insert(ref)
                 ref.personalNote = note
@@ -166,6 +173,7 @@ private struct ColourPicker: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
+        .sensoryFeedback(.selection, trigger: selection)
     }
 
     private func swatch(_ colour: NoteColour) -> some View {
