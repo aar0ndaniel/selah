@@ -186,17 +186,17 @@ struct TodayView: View {
     private var verseCard: some View {
         if let verse = verseEntryToday?.bestVerse {
             let reference = "\(verse.reference) (\(verse.translation.shortName))"
-            ToneCard(tone: .sky, padding: Theme.Spacing.l) {
+            ToneCard(tone: .sand, padding: Theme.Spacing.l) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     HStack(alignment: .center) {
                         PIconView(.quotes, filled: true, size: 30, relativeTo: .largeTitle)
-                            .foregroundStyle(Tone.sky.ink)
+                            .foregroundStyle(Tone.sand.ink)
                         Spacer(minLength: 0)
                         Text("Verse of the day")
                             .font(.selahEyebrow)
                             .textCase(.uppercase)
                             .tracking(1.0)
-                            .foregroundStyle(Tone.sky.inkSecondary)
+                            .foregroundStyle(Tone.sand.inkSecondary)
                             .accessibilityAddTraits(.isHeader)
                     }
 
@@ -206,7 +206,7 @@ struct TodayView: View {
                             .lineSpacing(4)
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
-                        OnCardPill(text: reference, tone: .sky)
+                        OnCardPill(text: reference, tone: .sand)
                     }
                     .accessibilityElement(children: .combine)
 
@@ -231,7 +231,7 @@ struct TodayView: View {
                     Text("Start a book in Study first")
                         .font(.selahBody)
                     Button("Go to Study") { router.selectedTab = .study }
-                        .buttonStyle(.selahSecondary(tone: .sky))
+                        .buttonStyle(.selahSecondary(tone: .sand))
                 }
             }
         } else {
@@ -249,7 +249,7 @@ struct TodayView: View {
                             showVersePicker = true
                         }
                     }
-                    .buttonStyle(.selahSecondary(tone: .sky))
+                    .buttonStyle(.selahSecondary(tone: .sand))
                 }
             }
         }
@@ -259,7 +259,7 @@ struct TodayView: View {
         ShareLink(item: "\(text) \u{2014} \(reference)") {
             Label("Share", picon: .export)
                 .font(.selahLabel.weight(.semibold))
-                .foregroundStyle(Tone.sky.ink)
+                .foregroundStyle(Tone.sand.ink)
                 .padding(.horizontal, Theme.Spacing.m)
                 .frame(minHeight: Theme.minTapTarget)
                 .background(Color(.systemBackground).opacity(0.6), in: Capsule())
