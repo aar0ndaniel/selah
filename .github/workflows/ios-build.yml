@@ -56,8 +56,9 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build/test \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build-test.log | grep -E "error:|warning: |Test .*(passed|failed)|\*\* (TEST|BUILD)" || true
-          exit ${PIPESTATUS[0]}
+            > build-test.log 2>&1 && status=0 || status=$?
+          grep -E "error:|warning: |Test .*(passed|failed)|\*\* (TEST|BUILD)" build-test.log || true
+          exit $status
 
       - name: Build unsigned Release IPA
         run: |
@@ -72,8 +73,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            | tee build-release.log | grep -E "error:|\*\* BUILD" || true
-          exit ${PIPESTATUS[0]}
+            > build-release.log 2>&1 && status=0 || status=$?
+          grep -E "error:|\*\* BUILD" build-release.log || true
+          exit $status
 
       - name: Package Selah.ipa
         run: |
