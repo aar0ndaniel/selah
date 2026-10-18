@@ -145,7 +145,7 @@ struct MeetingDaysView: View {
     private func addDay() {
         let day = MeetingDay(weekday: 1, hour: 9, minute: 0, name: "New meeting", reminderMinutesBefore: 60)
         modelContext.insert(day)
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: modelContext)
         editing = day
     }
 
@@ -154,13 +154,14 @@ struct MeetingDaysView: View {
         for index in offsets {
             modelContext.delete(current[index])
         }
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: modelContext)
     }
 }
 
 // MARK: - Editor
 
 struct MeetingDayEditor: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var day: MeetingDay
 
     private static let baseReminders = [0, 15, 30, 60, 120]
@@ -185,7 +186,7 @@ struct MeetingDayEditor: View {
                 let parts = Calendar.current.dateComponents([.hour, .minute], from: newValue)
                 day.hour = parts.hour ?? day.hour
                 day.minute = parts.minute ?? day.minute
-                // Phase 9: NotificationScheduler.reschedule()
+                NotificationScheduler.shared.reschedule(context: modelContext)
             }
         )
     }
@@ -217,16 +218,16 @@ struct MeetingDayEditor: View {
         .navigationTitle(day.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: day.weekday) { _, _ in
-            // Phase 9: NotificationScheduler.reschedule()
+            NotificationScheduler.shared.reschedule(context: modelContext)
         }
         .onChange(of: day.reminderMinutesBefore) { _, _ in
-            // Phase 9: NotificationScheduler.reschedule()
+            NotificationScheduler.shared.reschedule(context: modelContext)
         }
         .onChange(of: day.isActive) { _, _ in
-            // Phase 9: NotificationScheduler.reschedule()
+            NotificationScheduler.shared.reschedule(context: modelContext)
         }
         .onChange(of: day.name) { _, _ in
-            // Phase 9: NotificationScheduler.reschedule()
+            NotificationScheduler.shared.reschedule(context: modelContext)
         }
     }
 }

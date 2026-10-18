@@ -63,7 +63,7 @@ enum StudyActions {
         if let reminderTime {
             addReminder(to: plan, hour: reminderTime.hour, minute: reminderTime.minute, in: context)
         }
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: context)
         return plan
     }
 
@@ -74,13 +74,13 @@ enum StudyActions {
         let reminder = ReadingReminder(hour: hour, minute: minute)
         context.insert(reminder)
         reminder.plan = plan
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: context)
         return reminder
     }
 
     static func deleteReminder(_ reminder: ReadingReminder, in context: ModelContext) {
         context.delete(reminder)
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: context)
     }
 
     /// Starts an Up next book today.
@@ -88,13 +88,13 @@ enum StudyActions {
         guard plan.status == .upNext else { return }
         plan.status = .reading
         plan.startDate = now
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: plan.modelContext)
     }
 
     /// Toggles one chapter using the shared status rules.
     static func toggleChapter(_ chapter: Int, in plan: ReadingPlan, now: Date = Date()) {
         plan.setChapter(chapter, read: !plan.chaptersRead.contains(chapter), now: now)
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: plan.modelContext)
     }
 
     /// The first chapter not yet read, or the last chapter when all are read.
@@ -116,7 +116,7 @@ enum StudyActions {
         entry.plan = plan
         if markRead, !plan.chaptersRead.contains(entry.chapter) {
             plan.setChapter(entry.chapter, read: true, now: now)
-            // Phase 9: NotificationScheduler.reschedule()
+            NotificationScheduler.shared.reschedule(context: context)
         }
     }
 
@@ -124,7 +124,7 @@ enum StudyActions {
     static func applyReadToggle(_ markRead: Bool, chapter: Int, in plan: ReadingPlan, now: Date = Date()) {
         guard markRead != plan.chaptersRead.contains(chapter) else { return }
         plan.setChapter(chapter, read: markRead, now: now)
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: plan.modelContext)
     }
 
     /// Replaces the best verse, deleting the old one.
@@ -137,7 +137,7 @@ enum StudyActions {
 
     static func deletePlan(_ plan: ReadingPlan, in context: ModelContext) {
         context.delete(plan)
-        // Phase 9: NotificationScheduler.reschedule()
+        NotificationScheduler.shared.reschedule(context: context)
     }
 
     // MARK: - Text

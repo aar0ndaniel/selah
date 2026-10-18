@@ -77,6 +77,13 @@ struct StudyView: View {
                 router.pendingAction = nil
             }
         }
+        .onAppear {
+            // The hand-off from Today can arrive before this tab exists.
+            if router.pendingAction == .addBook {
+                showAddBook = true
+                router.pendingAction = nil
+            }
+        }
     }
 
     /// Deleting waits until the book sheet is gone so no view reads a deleted model.

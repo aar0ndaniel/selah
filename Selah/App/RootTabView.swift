@@ -1,7 +1,21 @@
 import SwiftUI
+import SwiftData
 
 struct RootTabView: View {
     @State private var router = AppRouter()
+    @Query private var profiles: [UserProfile]
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var appearance: ColorScheme? { profiles.first?.appearance.colorScheme }
+
+    /// First launch: no profile yet, or onboarding not finished.
+    private var showOnboarding: Binding<Bool> {
+        Binding(
+            get: { profiles.first?.onboarded != true },
+            set: { _ in }
+        )
+    }
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -24,7 +38,18 @@ struct RootTabView: View {
                 .padding(.trailing, Theme.Spacing.m)
                 .padding(.bottom, 72)
         }
+        .fullScreenCover(isPresented: showOnboarding) {
+            OnboardingView()
+                .preferredColorScheme(appearance)
+        }
+        .preferredColorScheme(appearance)
         .environment(router)
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            // Refreshes "Time for Philippians 3" style bodies and drops stale reminders.
+            if phase == .active {
+                NotificationScheduler.shared.reschedule(context: modelContext)
+            }
+        }
     }
 }
 

@@ -1,13 +1,24 @@
 import SwiftUI
+import SwiftData
+import PhotosUI
+import UserNotifications
 
+/// Settings and profile, opened from the Today toolbar.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query private var profiles: [UserProfile]
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("Coming in a later phase")
+            Group {
+                if let profile = profiles.first {
+                    SettingsForm(profile: profile)
+                } else {
+                    // Exactly one UserProfile is created lazily.
+                    Color.clear.onAppear {
+                        ProfileStore.ensure(profiles, in: modelContext)
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -21,6 +32,332 @@ struct SettingsView: View {
     }
 }
 
+/// Verse text at the user's chosen size; keeps scaling with Dynamic Type.
+struct ScaledVerseText: View {
+    let text: String
+    let points: Double
+    @ScaledMetric(relativeTo: .body) private var unit: CGFloat = 1
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: CGFloat(points) * unit, design: .serif))
+    }
+}
+
+private struct SettingsForm: View {
+    @Bindable var profile: UserProfile
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Minutes after midnight. Phase 9 uses these as defaults when scheduling.
+    @AppStorage("defaultReadingMinutes") private var defaultReadingMinutes = 7 * 60
+    @AppStorage("defaultServiceReminderMinutes") private var defaultServiceReminderMinutes = 60
+
+    @State private var photoItem: PhotosPickerItem?
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showReset = false
+
+    private static let reminderOptions = [0, 15, 30, 60, 120]
+
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        if let build, build != "1" { return "\(version) (\(build))" }
+        return version
+    }
+
+    var body: some View {
+        Form {
+            profileSection
+            meetingSection
+            reminderSection
+            bibleSection
+            appearanceSection
+            dataSection
+            aboutSection
+        }
+        .task { notificationStatus = await NotificationAccess.status() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { notificationStatus = await NotificationAccess.status() }
+            }
+        }
+        .task(id: photoItem) {
+            guard let item = photoItem else { return }
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let small = ProfileStore.avatarData(from: data) {
+                profile.photoData = small
+            }
+            photoItem = nil
+        }
+        .confirmationDialog(
+            "Delete all data?",
+            isPresented: $showReset,
+            titleVisibility: .visible
+        ) {
+            Button("Delete everything", role: .destructive, action: resetAll)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your books, entries, services, notes and meeting days will be deleted from this iPhone. This cannot be undone.")
+        }
+    }
+
+    // MARK: Profile
+
+    private var profileSection: some View {
+        Section("Profile") {
+            HStack(spacing: Theme.Spacing.m) {
+                AvatarView(photoData: profile.photoData, size: 64)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Text(profile.photoData == nil ? "Add photo" : "Change photo")
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                    if profile.photoData != nil {
+                        Button("Remove photo", role: .destructive) {
+                            profile.photoData = nil
+                        }
+                        .frame(minHeight: 44, alignment: .leading)
+                    }
+                }
+            }
+            TextField("Name", text: $profile.name)
+                .textContentType(.givenName)
+                .textInputAutocapitalization(.words)
+            TextField("Congregation", text: $profile.congregation)
+                .textInputAutocapitalization(.words)
+        }
+    }
+
+    // MARK: Meeting days
+
+    private var meetingSection: some View {
+        Section {
+            NavigationLink {
+                MeetingDaysView()
+            } label: {
+                Label("Meeting days", systemImage: "calendar")
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+        } footer: {
+            Text("The days your congregation meets. Today shows the next one.")
+        }
+    }
+
+    // MARK: Reminders
+
+    private var readingTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(
+                    bySettingHour: defaultReadingMinutes / 60,
+                    minute: defaultReadingMinutes % 60,
+                    second: 0,
+                    of: Date()
+                ) ?? Date()
+            },
+            set: { newValue in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                defaultReadingMinutes = (parts.hour ?? 7) * 60 + (parts.minute ?? 0)
+                NotificationScheduler.shared.reschedule(context: modelContext)
+            }
+        )
+    }
+
+    private var serviceReminderOptions: [Int] {
+        var options = Self.reminderOptions
+        if !options.contains(defaultServiceReminderMinutes) {
+            options.append(defaultServiceReminderMinutes)
+            options.sort()
+        }
+        return options
+    }
+
+    private func minutesText(_ minutes: Int) -> String {
+        switch minutes {
+        case 0: return "No reminder"
+        case 60: return "1 hour before"
+        case 120: return "2 hours before"
+        default: return "\(minutes) minutes before"
+        }
+    }
+
+    private var reminderSection: some View {
+        Section {
+            DatePicker("Reading time", selection: readingTimeBinding, displayedComponents: .hourAndMinute)
+                .frame(minHeight: 44)
+            Picker("Before a service", selection: $defaultServiceReminderMinutes) {
+                ForEach(serviceReminderOptions, id: \.self) { minutes in
+                    Text(minutesText(minutes)).tag(minutes)
+                }
+            }
+            .frame(minHeight: 44)
+            .onChange(of: defaultServiceReminderMinutes) { _, _ in
+                NotificationScheduler.shared.reschedule(context: modelContext)
+            }
+            LabeledContent("Notifications", value: NotificationAccess.statusText(notificationStatus))
+                .frame(minHeight: 44)
+            if notificationStatus == .notDetermined {
+                Button("Turn on reminders") {
+                    Task {
+                        _ = await NotificationAccess.request()
+                        notificationStatus = await NotificationAccess.status()
+                        NotificationScheduler.shared.reschedule(context: modelContext)
+                    }
+                }
+                .frame(minHeight: 44, alignment: .leading)
+            }
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            }
+            .frame(minHeight: 44, alignment: .leading)
+        } header: {
+            Text("Reminders")
+        } footer: {
+            Text("These times are used for new books and meeting days. You can change each one separately.")
+        }
+    }
+
+    // MARK: Bible
+
+    private var textSizeBinding: Binding<VerseTextSize> {
+        Binding(
+            get: { VerseTextSize.nearest(to: profile.textSize) },
+            set: { profile.textSize = $0.rawValue }
+        )
+    }
+
+    private var bibleSection: some View {
+        Section {
+            Picker("Translation", selection: $profile.translation) {
+                ForEach(Translation.allCases, id: \.self) { translation in
+                    Text("\(translation.fullName) (\(translation.shortName))").tag(translation)
+                }
+            }
+            .frame(minHeight: 44)
+            Picker("Verse text size", selection: textSizeBinding) {
+                ForEach(VerseTextSize.allCases, id: \.self) { size in
+                    Text(size.title).tag(size)
+                }
+            }
+            .frame(minHeight: 44)
+            ScaledVerseText(text: "The Lord is my shepherd; I shall not want.", points: profile.textSize)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Preview: The Lord is my shepherd; I shall not want.")
+        } header: {
+            Text("Bible")
+        } footer: {
+            Text("New verses use this translation. Verses you already saved keep the translation they were added in.")
+        }
+    }
+
+    // MARK: Appearance
+
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            Picker("Appearance", selection: $profile.appearance) {
+                ForEach(Appearance.allCases, id: \.self) { appearance in
+                    Text(appearance.title).tag(appearance)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    // MARK: Data
+
+    private var dataSection: some View {
+        Section {
+            comingSoonRow("Export notes", systemImage: "square.and.arrow.up") // Phase 10
+            comingSoonRow("Back up", systemImage: "icloud.and.arrow.up") // Phase 10
+            comingSoonRow("Restore", systemImage: "icloud.and.arrow.down") // Phase 10
+            Button("Delete all data", role: .destructive) {
+                showReset = true
+            }
+            .frame(minHeight: 44, alignment: .leading)
+        } header: {
+            Text("Data")
+        } footer: {
+            Text("Everything stays on this iPhone. Selah has no account and no server.")
+        }
+    }
+
+    private func comingSoonRow(_ title: String, systemImage: String) -> some View {
+        HStack {
+            Label(title, systemImage: systemImage)
+            Spacer()
+            Text("Coming soon")
+                .foregroundStyle(.secondary)
+        }
+        .frame(minHeight: 44)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: About
+
+    private var aboutSection: some View {
+        Section {
+            LabeledContent("Version", value: versionText)
+                .frame(minHeight: 44)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Bible translations")
+                    .font(.subheadline.weight(.semibold))
+                Text("King James Version (KJV): public domain.")
+                Text("American Standard Version (ASV, 1901): public domain.")
+                Text("World English Bible (WEB): public domain, from eBible.org. \"World English Bible\" is a trademark of eBible.org.")
+                Text("Berean Standard Bible (BSB): public domain, released by Berean Bible.")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.vertical, Theme.Spacing.xxs)
+        } header: {
+            Text("About")
+        }
+    }
+
+    // MARK: Reset
+
+    private func deleteAll<T: PersistentModel>(_ type: T.Type) {
+        let items = (try? modelContext.fetch(FetchDescriptor<T>())) ?? []
+        for item in items {
+            modelContext.delete(item)
+        }
+    }
+
+    private func resetAll() {
+        deleteAll(ReadingPlan.self)
+        deleteAll(StudyEntry.self)
+        deleteAll(Service.self)
+        deleteAll(PersonalNote.self)
+        deleteAll(MeetingDay.self)
+        deleteAll(ReadingReminder.self)
+        deleteAll(VerseRef.self)
+        deleteAll(NoteComment.self)
+        deleteAll(Song.self)
+
+        // Keep the profile (and onboarded) so Selah opens straight to a clean Today.
+        profile.name = ""
+        profile.photoData = nil
+        profile.congregation = ""
+        profile.translation = .kjv
+        profile.textSize = VerseTextSize.standard.rawValue
+        profile.appearance = .system
+        defaultReadingMinutes = 7 * 60
+        defaultServiceReminderMinutes = 60
+
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        try? modelContext.save()
+        NotificationScheduler.shared.reschedule(context: modelContext)
+    }
+}
+
 #Preview {
     SettingsView()
+        .modelContainer(SampleData.container)
+        .environment(AppRouter())
 }

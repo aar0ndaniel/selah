@@ -3,6 +3,11 @@ import SwiftData
 
 @main
 struct SelahApp: App {
+    init() {
+        // Show reminders as banners even while the app is open.
+        NotificationScheduler.shared.installDelegate()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
