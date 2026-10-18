@@ -6,6 +6,8 @@ struct ServicesLogicTests {
     private var calendar: Calendar {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(identifier: "UTC") ?? .current
+        // Without a locale the calendar falls back to short day names ("Sun").
+        c.locale = Locale(identifier: "en_US")
         return c
     }
 
