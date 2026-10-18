@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 
 enum AppTab: Hashable, CaseIterable {
-    case today, study, services, notes
+    case today, study, services, notes, search
 
     /// Visible tab title (also the VoiceOver label and the XCUITest handle).
     var title: String {
@@ -11,6 +11,7 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return "Study"
         case .services: return "Services"
         case .notes: return "Notes"
+        case .search: return "Search"
         }
     }
 
@@ -21,6 +22,7 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return .bookOpen
         case .services: return .church
         case .notes: return .note
+        case .search: return .magnifyingGlass
         }
     }
 
@@ -30,6 +32,7 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return "tab-study"
         case .services: return "tab-services"
         case .notes: return "tab-notes"
+        case .search: return "tab-search"
         }
     }
 }

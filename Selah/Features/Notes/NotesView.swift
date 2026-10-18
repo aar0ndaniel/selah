@@ -68,9 +68,6 @@ struct NotesView: View {
             .background { AppBackground() }
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
-            .hidesPlusWhileSearching()
-            .searchable(text: $query, prompt: "Search notes and verses")
-            .bottomSearchToolbar()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -208,6 +205,13 @@ struct NotesView: View {
     private func pinnedRow(_ items: [NoteItem]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             sectionHeader("Pinned")
+            if items.count == 1, let only = items.first {
+                // A lone pinned note spans the full width instead of leaving the row half empty.
+                boardCard(for: only, size: .full)
+                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.top, Theme.Spacing.l)
+                    .padding(.bottom, Theme.Spacing.m)
+            } else {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: Theme.Spacing.l) {
                     ForEach(items) { item in
@@ -221,6 +225,7 @@ struct NotesView: View {
                 .padding(.bottom, Theme.Spacing.m)
             }
             .scrollIndicators(.hidden)
+            }
         }
     }
 

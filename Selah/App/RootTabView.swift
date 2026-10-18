@@ -60,10 +60,17 @@ struct RootTabView: View {
                 tabLabel(.services, selected: selected)
             }
             Tab(value: AppTab.notes) {
-                // Notes has the iOS 26 bottom search capsule there, so its "New note" lives in the nav bar instead.
+                // Notes has no + button (search lives in the Search tab), so its "New note" lives in the nav bar instead.
                 NotesView()
             } label: {
                 tabLabel(.notes, selected: selected)
+            }
+            // iOS 26: the search role is the dedicated search tab. The system draws it as a separate round button
+            // beside the tab bar, and it expands into the bottom search field. No + button here.
+            Tab(value: AppTab.search, role: .search) {
+                SearchHubView()
+            } label: {
+                tabLabel(.search, selected: selected)
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
@@ -147,7 +154,7 @@ private struct PlusButton: View {
         case .today: return "Write today's entry"
         case .study: return "Add a book"
         case .services: return "New service for today"
-        case .notes: return "New note"
+        case .notes, .search: return "New note"
         }
     }
 
@@ -156,7 +163,7 @@ private struct PlusButton: View {
         case .today: return .writeTodayEntry
         case .study: return .addBook
         case .services: return .newService
-        case .notes: return .newNote
+        case .notes, .search: return .newNote
         }
     }
 

@@ -92,6 +92,23 @@ final class ScreenshotTests: XCTestCase {
         snap(app, "09-notes-dark")
     }
 
+    @MainActor
+    func test10SearchLight() {
+        let app = launchApp()
+        openTab(app, .search)
+        // The search tab puts the field at the bottom; tap it and type a reference if it can be found.
+        let field = firstExisting([
+            app.searchFields.firstMatch,
+            app.textFields["Search notes, services and verses"]
+        ], timeout: 5)
+        if let field {
+            field.tap()
+            field.typeText("Phil 4:6")
+            settle(2)
+        }
+        snap(app, "10-search-light")
+    }
+
     // MARK: - Helpers
 
     private static let sampleDataArgument = "-uiTestSampleData"
@@ -99,7 +116,7 @@ final class ScreenshotTests: XCTestCase {
     private static let darkArgument = "-uiTestDark"
 
     private enum Tab {
-        case today, study, services, notes
+        case today, study, services, notes, search
 
         var title: String {
             switch self {
@@ -107,6 +124,7 @@ final class ScreenshotTests: XCTestCase {
             case .study: return "Study"
             case .services: return "Services"
             case .notes: return "Notes"
+            case .search: return "Search"
             }
         }
 
@@ -116,6 +134,7 @@ final class ScreenshotTests: XCTestCase {
             case .study: return "tab-study"
             case .services: return "tab-services"
             case .notes: return "tab-notes"
+            case .search: return "tab-search"
             }
         }
     }

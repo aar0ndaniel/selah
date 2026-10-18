@@ -11,6 +11,8 @@ struct BoardNoteCard: View {
         case regular
         /// Wider, for the pinned row.
         case large
+        /// Large type, spanning the full width (a lone pinned note).
+        case full
     }
 
     let item: NoteItem
@@ -43,7 +45,7 @@ struct BoardNoteCard: View {
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.vertical, Theme.Spacing.l)
             .frame(width: size == .large ? largeWidth : nil, alignment: .topLeading)
-            .frame(maxWidth: size == .regular ? CGFloat.infinity : nil, minHeight: minHeight, alignment: .topLeading)
+            .frame(maxWidth: size == .large ? nil : CGFloat.infinity, minHeight: minHeight, alignment: .topLeading)
             .background {
                 // Soft shadow in light mode; a hairline instead on a black page, where a shadow would be invisible.
                 shape
@@ -67,17 +69,17 @@ struct BoardNoteCard: View {
             SelahPill(item.kind.chipTitle, icon: item.kind.icon, style: .neutral)
 
             Text(item.displayTitle)
-                .font(size == .large ? .selahCardTitle : .selahHeadline)
+                .font(size != .regular ? .selahCardTitle : .selahHeadline)
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(3)
 
             if let snippetText {
                 snippetText
-                    .font(size == .large ? .body : .subheadline)
+                    .font(size != .regular ? .body : .subheadline)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(size == .large ? 7 : 6)
+                    .lineLimit(size != .regular ? 7 : 6)
             }
 
             Spacer(minLength: 0)
