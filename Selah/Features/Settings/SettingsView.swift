@@ -84,6 +84,7 @@ private struct SettingsForm: View {
         Form {
             profileSection
             meetingSection
+            quietTimeSection
             reminderSection
             bibleSection
             appearanceSection
@@ -178,6 +179,21 @@ private struct SettingsForm: View {
             }
         } footer: {
             Text("The days your congregation meets. Today shows the next one.")
+        }
+    }
+
+    // MARK: Quiet time
+
+    private var quietTimeSection: some View {
+        Section {
+            NavigationLink {
+                QuietTimeSetupView()
+            } label: {
+                PLabel("Quiet time", icon: .moon)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+        } footer: {
+            Text("Silence your phone and hide social apps while you study or at services, using a Focus.")
         }
     }
 

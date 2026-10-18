@@ -65,6 +65,10 @@ enum PIcon: String, CaseIterable, Sendable {
     case bell
     case bellRinging = "bell-ringing"
     case flame
+    case moon
+    case bellSlash = "bell-slash"
+    case deviceMobile = "device-mobile"
+    case arrowSquareOut = "arrow-square-out"
 
     // Formatting toolbar
     case textB = "text-b"

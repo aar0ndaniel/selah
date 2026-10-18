@@ -29,6 +29,9 @@ private struct RecentNote: Identifiable {
 struct TodayView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Quiet time state shared with the App Intents. Reading it in `body` makes the banner appear and go away.
+    private let quiet = QuietIntentRouter.shared
 
     @Query private var profiles: [UserProfile]
     @Query(sort: \ReadingPlan.bookName) private var plans: [ReadingPlan]
@@ -98,6 +101,10 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header(now: now)
+                    if quiet.isQuietTimeOn {
+                        QuietTimeBanner(onEnd: { quiet.endQuietTime() })
+                            .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                    }
                     StreakSection(
                         summary: Streaks.summary(input, today: now),
                         week: Streaks.week(input, today: now),
@@ -113,6 +120,7 @@ struct TodayView: View {
                     recentNotesSection
                 }
                 .padding(.horizontal, Theme.Spacing.m)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: quiet.isQuietTimeOn)
             }
             .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
             .background { AppBackground() }

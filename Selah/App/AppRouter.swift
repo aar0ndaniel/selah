@@ -36,6 +36,8 @@ enum AppTab: Hashable, CaseIterable {
 
 enum PlusAction: Hashable {
     case writeTodayEntry, addBook, newService, newNote
+    /// Quiet time: open today's service page (create it when there is none). Handled by ServicesView.
+    case openTodayService
 }
 
 @MainActor

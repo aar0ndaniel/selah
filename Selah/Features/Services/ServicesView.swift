@@ -432,9 +432,29 @@ struct ServicesView: View {
     // MARK: New service
 
     private func handlePendingAction() {
-        guard router.pendingAction == .newService else { return }
-        router.pendingAction = nil
-        createServiceForToday()
+        switch router.pendingAction {
+        case .newService:
+            router.pendingAction = nil
+            createServiceForToday()
+        case .openTodayService:
+            // Quiet time ("Start service notes"): open today's service, or start one for today.
+            router.pendingAction = nil
+            openOrCreateTodaysService()
+        default:
+            break
+        }
+    }
+
+    /// A meeting day opens (or creates) that gathering's service. Any other day opens a service already recorded
+    /// today, or starts a new one with the + flow.
+    private func openOrCreateTodaysService() {
+        if let prompt = todayPrompt {
+            openTodaysService(prompt)
+        } else if let existing = services.first(where: { Calendar.current.isDateInToday($0.date) }) {
+            openService = existing
+        } else {
+            createServiceForToday()
+        }
     }
 
     /// The + flow: a new service dated today, named after today's meeting when there is one.

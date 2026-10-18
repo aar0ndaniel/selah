@@ -19,6 +19,8 @@ struct RootTabView: View {
     @Query private var profiles: [UserProfile]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    /// Shared with the App Intents (they run in this process). Reading `pending` in `body` makes SwiftUI observe it.
+    private let quiet = QuietIntentRouter.shared
 
     /// A colour scheme forced by a UI-test launch argument; wins over the profile setting.
     private let forcedScheme: ColorScheme?
@@ -77,10 +79,20 @@ struct RootTabView: View {
         .preferredColorScheme(appearance)
         .environment(router)
         .onChange(of: scenePhase, initial: true) { _, phase in
+            quiet.isSceneActive = phase == .active
             // Refreshes "Time for Philippians 3" style bodies and drops stale reminders.
             if phase == .active {
                 NotificationScheduler.shared.reschedule(context: modelContext)
+                // The Selah Focus filter can ask for a page; this opens it once per Focus session.
+                quiet.consumeFocusSession()
             }
+        }
+        // Quiet time hand-off from App Intents / the Focus filter. `initial: true` also catches a destination that
+        // was set before this view appeared (the app was launched by the intent).
+        .onChange(of: quiet.pending, initial: true) { _, destination in
+            guard let destination else { return }
+            quiet.pending = nil
+            router.open(destination)
         }
     }
 
