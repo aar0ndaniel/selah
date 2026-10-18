@@ -23,8 +23,8 @@ private struct PressedEffect: ViewModifier {
 
 // MARK: - Primary
 
-/// Filled accent capsule. The label is `systemBackground`: white on the deep teal in light mode and black on
-/// the bright teal in dark mode, which keeps contrast above 5:1 in both.
+/// Filled accent capsule. The label is `systemBackground`: white on #D33E43 in light mode (4.6:1) and black on
+/// #E2585D in dark mode (5.8:1).
 struct SelahPrimaryButtonStyle: ButtonStyle {
     var fullWidth: Bool = false
     @Environment(\.isEnabled) private var isEnabled
@@ -46,9 +46,9 @@ struct SelahPrimaryButtonStyle: ButtonStyle {
 
 // MARK: - Secondary
 
-/// Tinted capsule: `tone.fill` background with `tone.ink` label.
+/// Tinted capsule: `tone.fill` background with `tone.ink` label. With no tone it uses the brand tint.
 struct SelahSecondaryButtonStyle: ButtonStyle {
-    var tone: Tone = .teal
+    var tone: Tone? = nil
     var fullWidth: Bool = false
     @Environment(\.isEnabled) private var isEnabled
 
@@ -56,11 +56,11 @@ struct SelahSecondaryButtonStyle: ButtonStyle {
         configuration.label
             .font(.subheadline.weight(.semibold))
             .multilineTextAlignment(.center)
-            .foregroundStyle(tone.ink)
+            .foregroundStyle(tone?.ink ?? Theme.brandInk)
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.vertical, Theme.Spacing.xs)
             .frame(maxWidth: fullWidth ? CGFloat.infinity : nil, minHeight: Theme.minTapTarget)
-            .background(tone.fill, in: Capsule())
+            .background(tone?.fill ?? Theme.brandFill, in: Capsule())
             .contentShape(Capsule())
             .opacity(isEnabled ? 1 : 0.4)
             .modifier(PressedEffect(isPressed: configuration.isPressed))
@@ -105,7 +105,7 @@ extension ButtonStyle where Self == SelahPrimaryButtonStyle {
 
 extension ButtonStyle where Self == SelahSecondaryButtonStyle {
     /// `.buttonStyle(.selahSecondary(tone: .coral))`.
-    static func selahSecondary(tone: Tone = .teal, fullWidth: Bool = false) -> SelahSecondaryButtonStyle {
+    static func selahSecondary(tone: Tone? = nil, fullWidth: Bool = false) -> SelahSecondaryButtonStyle {
         SelahSecondaryButtonStyle(tone: tone, fullWidth: fullWidth)
     }
 }

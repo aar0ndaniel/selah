@@ -99,7 +99,7 @@ struct StreakPill: View {
 private struct ParticleBurst: View {
     let progress: CGFloat
 
-    private let colours: [Color] = [Tone.coral.ink, Tone.teal.ink, Tone.sky.ink]
+    private let colours: [Color] = [Tone.coral.ink, Theme.brandInk, Tone.sky.ink]
     private let count = 10
 
     var body: some View {
@@ -161,7 +161,7 @@ struct WeekStrip: View {
         ZStack {
             switch day.state {
             case .done:
-                Circle().fill(Tone.teal.ink)
+                Circle().fill(Theme.brandInk)
                 PIconView(.check, size: 12, relativeTo: .caption)
                     .foregroundStyle(Color(.systemBackground))
             case .pending:

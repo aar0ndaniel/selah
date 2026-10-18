@@ -113,7 +113,7 @@ struct PersonalNotePage: View {
             } label: {
                 PLabel("Add a verse", icon: .plusCircle, textStyle: .subheadline)
             }
-            .buttonStyle(.selahSecondary(tone: .teal))
+            .buttonStyle(.selahSecondary())
         }
     }
 

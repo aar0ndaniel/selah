@@ -6,8 +6,13 @@ import UIKit
 ///
 /// The full system (tones with hex values, type scale, buttons, icons) is written up in docs/DESIGN-SYSTEM.md.
 enum Theme {
-    /// The teal accent, read straight from the asset catalog (interactive elements only, never a background).
+    /// The brand accent #D33E43 (dark mode #E2585D), read straight from the asset catalog.
+    /// Interactive elements only; never a page background.
     static let accent = Color("AccentColor")
+    /// Pale accent tint for secondary buttons and selected toggles (light #FBE9EA / dark #3A1517).
+    static let brandFill = Color("BrandFill")
+    /// Accent ink on `brandFill` (light #A42A2F / dark #F2A3A6): 6.1:1 light, 8.1:1 dark.
+    static let brandInk = Color("BrandInk")
 
     /// 8pt grid.
     enum Spacing {

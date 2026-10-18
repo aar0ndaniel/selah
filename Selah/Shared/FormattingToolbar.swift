@@ -178,9 +178,9 @@ final class FormattingToolbar: UIView {
         configuration.image = UIImage(named: action.icon.assetName())?.withRenderingMode(.alwaysTemplate)
         configuration.cornerStyle = .capsule
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
-        configuration.baseForegroundColor = selected ? (UIColor(named: "ToneTealInk") ?? .label) : .label
+        configuration.baseForegroundColor = selected ? (UIColor(named: "BrandInk") ?? .label) : .label
         configuration.background.backgroundColor = selected
-            ? (UIColor(named: "ToneTealFill") ?? .secondarySystemFill)
+            ? (UIColor(named: "BrandFill") ?? .secondarySystemFill)
             : .clear
         button.configuration = configuration
         button.isSelected = selected

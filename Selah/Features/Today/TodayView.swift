@@ -275,7 +275,7 @@ struct TodayView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Button("Go to Study") { router.selectedTab = .study }
-                            .buttonStyle(.selahSecondary(tone: .teal))
+                            .buttonStyle(.selahSecondary())
                     }
                 }
             } else {
@@ -376,7 +376,7 @@ struct TodayView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Button("Open settings") { showSettings = true }
-                            .buttonStyle(.selahSecondary(tone: .teal))
+                            .buttonStyle(.selahSecondary())
                     }
                 }
             }
@@ -436,7 +436,7 @@ struct TodayView: View {
                     .buttonStyle(.selahPrimaryFull)
                 } else {
                     Button("Go to services") { router.selectedTab = .services }
-                        .buttonStyle(.selahSecondary(tone: .teal, fullWidth: true))
+                        .buttonStyle(.selahSecondary(fullWidth: true))
                 }
             }
         }
@@ -477,7 +477,7 @@ struct TodayView: View {
                                 router.pendingAction = .newNote
                             }
                         }
-                        .buttonStyle(.selahSecondary(tone: .teal))
+                        .buttonStyle(.selahSecondary())
                     }
                 }
             } else {
@@ -540,9 +540,9 @@ struct TodayView: View {
                             VStack(spacing: Theme.Spacing.xs) {
                                 Text("\(day.studyCount)")
                                     .font(.selahStatSmall)
-                                    .foregroundStyle(day.studyCount > 0 ? Tone.teal.ink : Color.secondary)
+                                    .foregroundStyle(day.studyCount > 0 ? Theme.brandInk : Color.secondary)
                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(Tone.teal.ink.opacity(day.studyCount == 0 ? 0.15 : (day.isToday ? 1 : 0.55)))
+                                    .fill(Theme.brandInk.opacity(day.studyCount == 0 ? 0.15 : (day.isToday ? 1 : 0.55)))
                                     .frame(height: max(barHeight * CGFloat(day.studyCount) / CGFloat(peak), 6))
                                 Text(letters[index % letters.count])
                                     .font(.footnote.weight(day.isToday ? .bold : .regular))
