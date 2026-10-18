@@ -23,17 +23,17 @@ private struct PressedEffect: ViewModifier {
 
 // MARK: - Primary
 
-/// Filled accent capsule. The label is `systemBackground`: white on #D33E43 in light mode (4.6:1) and black on
-/// #E2585D in dark mode (5.8:1).
+/// Filled accent capsule. The label is `Theme.onAccent` (Material on-primary): white on #D33E43 in light mode (4.6:1)
+/// and deep red #2A0004 on #E2585D in dark mode (5.3:1; white would only reach 3.6:1).
 struct SelahPrimaryButtonStyle: ButtonStyle {
     var fullWidth: Bool = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.selahButton)
             .multilineTextAlignment(.center)
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.xs)
             .frame(maxWidth: fullWidth ? CGFloat.infinity : nil, minHeight: 48)
@@ -46,7 +46,8 @@ struct SelahPrimaryButtonStyle: ButtonStyle {
 
 // MARK: - Secondary
 
-/// Tinted capsule: `tone.fill` background with `tone.ink` label. With no tone it uses the brand tint.
+/// Tinted capsule: `tone.pillFill` background with `tone.ink` label (a raised neutral grey with a light tonal label in
+/// dark mode). With no tone it uses the brand tint.
 struct SelahSecondaryButtonStyle: ButtonStyle {
     var tone: Tone? = nil
     var fullWidth: Bool = false
@@ -54,13 +55,13 @@ struct SelahSecondaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
+            .font(Font.selahLabel.weight(.semibold))
             .multilineTextAlignment(.center)
             .foregroundStyle(tone?.ink ?? Theme.brandInk)
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.vertical, Theme.Spacing.xs)
             .frame(maxWidth: fullWidth ? CGFloat.infinity : nil, minHeight: Theme.minTapTarget)
-            .background(tone?.fill ?? Theme.brandFill, in: Capsule())
+            .background(tone?.pillFill ?? Theme.brandFill, in: Capsule())
             .contentShape(Capsule())
             .opacity(isEnabled ? 1 : 0.4)
             .modifier(PressedEffect(isPressed: configuration.isPressed))
@@ -77,7 +78,7 @@ struct SelahTertiaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
+            .font(Font.selahLabel.weight(.semibold))
             .multilineTextAlignment(.center)
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, outlined ? Theme.Spacing.m : Theme.Spacing.xs)
@@ -132,12 +133,12 @@ struct Pill: View {
                 PIconView(icon, size: 14, relativeTo: .footnote)
             }
             Text(text)
-                .font(.footnote.weight(.semibold))
+                .font(Font.selahLabelSmall.weight(.semibold))
         }
         .foregroundStyle(tone.ink)
         .padding(.horizontal, Theme.Spacing.s)
         .padding(.vertical, 6)
-        .background(tone.fill, in: Capsule())
+        .background(tone.pillFill, in: Capsule())
         .accessibilityElement(children: .combine)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Yearly activity heatmap card (GitHub-style): a header with an icon tile, a year switcher, a scrolling grid of
-// rounded squares with five intensity levels, a "Log today" button and a streak / total footer.
+// rounded squares with five intensity levels, and a "Log today" button.
 //
 // Colour: neutral card (secondarySystemBackground). The squares are opacities of one colour: the accent (red) by
 // default, or a tone's ink. Level 0 is a quiet grey. Never gold, yellow, purple or indigo.
@@ -22,7 +22,6 @@ struct ActivityHeatmapCard: View {
     @Binding var year: Int
     var unitSingular: String = "note"
     var unitPlural: String = "notes"
-    var streak: Int = 0
     var loggedToday: Bool = false
     /// nil hides the "Log today" button.
     var onLogToday: (() -> Void)? = nil
@@ -71,7 +70,6 @@ struct ActivityHeatmapCard: View {
                 if let onLogToday {
                     logButton(onLogToday)
                 }
-                footer(data)
             }
         }
     }
@@ -268,25 +266,9 @@ struct ActivityHeatmapCard: View {
         .accessibilityIdentifier("heatmap-log-today")
     }
 
-    private func footer(_ data: ActivityYear) -> some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xxs))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Theme.Spacing.s))
-        return layout {
-            Text("Streak: \(plural(streak, "day", "days"))")
-            if !typeSize.isAccessibilitySize {
-                Spacer(minLength: 0)
-            }
-            Text("Total (\(String(year))): \(plural(data.total, unitSingular, unitPlural))")
-        }
-        .font(.subheadline.weight(.semibold))
-        .monospacedDigit()
-        .accessibilityElement(children: .combine)
-    }
-
     private func summary(_ data: ActivityYear) -> String {
         "\(title) activity \(String(year)): \(plural(data.activeDays, "day", "days")), "
-            + "\(plural(data.total, unitSingular, unitPlural)). Current streak \(plural(streak, "day", "days"))"
+            + "\(plural(data.total, unitSingular, unitPlural))"
     }
 }
 
@@ -316,7 +298,6 @@ private struct HeatmapPreview: View {
                 icon: .bookOpen,
                 dates: dates,
                 year: $year,
-                streak: 12,
                 loggedToday: loggedToday,
                 onLogToday: {}
             )

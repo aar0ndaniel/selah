@@ -10,7 +10,9 @@ struct SelahApp: App {
     init() {
         // Show reminders as banners even while the app is open.
         NotificationScheduler.shared.installDelegate()
-        // Serif large and inline navigation titles.
+        // Bundled DM Sans and Space Grotesk must be registered before any view asks for them.
+        FontRegistry.registerAll()
+        // Space Grotesk large and inline navigation titles.
         NavigationAppearance.install()
 
         let options = LaunchOptions.current

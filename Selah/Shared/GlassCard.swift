@@ -43,8 +43,10 @@ struct SurfaceCard<Content: View>: View {
 }
 
 /// Coloured content card: `tone.fill` background, radius 20, no shadow (the tint is the separation).
-/// Callers choose text colours: `.primary` for body text, `tone.ink` for icons and short labels,
-/// `tone.inkSecondary` for quieter text. Never use system `.secondary` on a tone fill.
+/// In light mode the fill is a pale tint of the tone. In dark mode it is the same neutral #1C1C1E for every tone
+/// (like an iOS Settings card), with no border: the colour then lives only in `tone.ink` icons and tiny labels.
+/// Callers choose text colours: `.primary` for body text, `tone.onSurface` for titles, `tone.ink` for icons and short
+/// labels, `tone.inkSecondary` for quieter text. Never use system `.secondary` on a light tone fill.
 struct ToneCard<Content: View>: View {
     private let tone: Tone
     private let padding: CGFloat
@@ -88,16 +90,16 @@ extension View {
                     .font(.selahVerse)
             }
             SurfaceCard {
-                Text("An ordinary card").font(.headline)
+                Text("An ordinary card").font(.selahCardTitle)
             }
             ForEach(Tone.allCases, id: \.self) { tone in
                 ToneCard(tone: tone) {
                     HStack {
                         PIconView(.bookOpen, size: 22)
                             .foregroundStyle(tone.ink)
-                        Text(tone.name).font(.selahHeadline)
+                        Text(tone.name).font(.selahHeadline).foregroundStyle(tone.onSurface)
                         Spacer()
-                        Text("Reading").font(.footnote).foregroundStyle(tone.inkSecondary)
+                        Text("Reading").font(.selahLabelSmall).foregroundStyle(tone.inkSecondary)
                     }
                 }
             }

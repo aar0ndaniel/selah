@@ -197,8 +197,7 @@ struct HabitWeekSection: View {
             todayIndex: states.todayIndex,
             rows: [
                 HabitWeekRow(id: "study", title: "Study", icon: .bookOpen, tone: .sage, states: states.study),
-                HabitWeekRow(id: "service", title: "Service", icon: .church, tone: .sky, states: states.service),
-                HabitWeekRow(id: "overall", title: "Overall", icon: .flame, tone: nil, states: states.overall)
+                HabitWeekRow(id: "service", title: "Service", icon: .church, tone: .sky, states: states.service)
             ],
             canGoForward: offset > 0,
             canGoBack: offset < Self.maxOffset,

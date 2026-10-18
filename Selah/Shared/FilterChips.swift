@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Horizontal chip row. Selected chip is a filled accent capsule; the others are quiet slate pills.
+/// Horizontal chip row. Selected chip is a filled accent capsule; the others are quiet slate pills (raised grey in dark).
 /// Plain fills, not glass: chips are content controls, and glass is reserved for the navigation layer.
 struct FilterChips<Item: Hashable>: View {
     let items: [Item]
@@ -27,12 +27,12 @@ struct FilterChips<Item: Hashable>: View {
             selection = item
         } label: {
             Text(title(item))
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color(.systemBackground) : Tone.slate.ink)
+                .font(Font.selahLabel.weight(isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? Theme.onAccent : Tone.slate.ink)
                 .padding(.horizontal, Theme.Spacing.m)
                 .frame(minHeight: Theme.minTapTarget)
                 .background(
-                    isSelected ? Color.accentColor : Tone.slate.fill,
+                    isSelected ? Color.accentColor : Tone.slate.pillFill,
                     in: Capsule()
                 )
                 .contentShape(Capsule())

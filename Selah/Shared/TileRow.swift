@@ -4,7 +4,8 @@ import SwiftUI
 /// count badge and chevron. Use inside `List` / `Form` sections with the system inset grouped style (the system draws
 /// the large corner radius, hairline separators and grouped background; nothing is faked here).
 ///
-/// Light mode: `tone.fill` tile with the `tone.ink` glyph. Dark mode: a neutral dark tile with the `tone.ink` glyph.
+/// Light mode: `tone.fill` tile with the `tone.ink` glyph. Dark mode: a neutral raised tile (#2C2C2E) with the light
+/// tonal `tone.ink` glyph; colour lives only in the glyph, like iOS Settings.
 /// Never use `.sky` (it is blue); use brand/coral/sage/rose/sand/mint/slate (graphite).
 
 /// How a tile row is tinted. `brand` uses the accent pair instead of a tone.
@@ -23,7 +24,7 @@ enum TileTone: Hashable, Sendable {
     var fill: Color {
         switch self {
         case .brand: return Theme.brandFill
-        case .tone(let tone): return tone.fill
+        case .tone(let tone): return tone.pillFill
         }
     }
 
@@ -40,7 +41,6 @@ struct TileIcon: View {
     let icon: PIcon
     let tone: TileTone
 
-    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var side: CGFloat = 30
 
     var body: some View {
@@ -48,7 +48,7 @@ struct TileIcon: View {
             .foregroundStyle(tone.ink)
             .frame(width: side, height: side)
             .background(
-                colorScheme == .dark ? Color(.tertiarySystemFill) : tone.fill,
+                tone.fill,
                 in: RoundedRectangle(cornerRadius: side * 0.27, style: .continuous)
             )
             .accessibilityHidden(true)
@@ -66,7 +66,7 @@ struct TileLabel: View {
         HStack(spacing: Theme.Spacing.s) {
             TileIcon(icon: icon, tone: destructive ? .rose : tone)
             Text(title)
-                .font(.body)
+                .font(.selahBody)
                 .foregroundStyle(destructive ? Color.red : Color.primary)
         }
     }
@@ -89,14 +89,14 @@ struct TileRow: View {
             Spacer(minLength: Theme.Spacing.xs)
             if let value {
                 Text(value)
-                    .font(.body)
+                    .font(.selahBody)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.trailing)
             }
             if let badge, badge > 0 {
                 Text("\(badge)")
                     .font(.selahStatSmall)
-                    .foregroundStyle(Color(.systemBackground))
+                    .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, Theme.Spacing.xs)
                     .frame(minWidth: 24, minHeight: 24)
                     .background(Theme.accent, in: Capsule())

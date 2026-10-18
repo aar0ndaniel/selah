@@ -10,7 +10,6 @@ struct ServicePage: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var meetingDays: [MeetingDay]
     @Query private var profiles: [UserProfile]
 
@@ -21,6 +20,7 @@ struct ServicePage: View {
     @State private var showDatePicker = false
     @State private var sermonOpen: Bool
     @State private var classOpen: Bool
+    @State private var songsOpen = true
 
     private static let otherTag = "__other__"
 
@@ -84,24 +84,22 @@ struct ServicePage: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                sermonBlock
-                Divider()
-                classBlock
-                Divider()
-                songsBlock
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.top, Theme.Spacing.xs)
-            .padding(.bottom, Theme.Spacing.l)
+        List {
+            headerSection
+            sermonSection
+            classSection
+            songsSection
         }
+        .listStyle(.insetGrouped)
         .scrollDismissesKeyboard(.interactively)
-        .background { AppBackground() }
         .navigationTitle("Service")
         .navigationBarTitleDisplayMode(.inline)
         .hidesPlusButton()
+        .toolbar {
+            if sortedSongs.count > 1 {
+                ToolbarItem(placement: .topBarTrailing) { EditButton() }
+            }
+        }
         // Pushed in the same stack rather than shown as a sheet.
         .navigationDestination(isPresented: pickerIsPresented) {
             VersePicker(translation: translation, embedded: true) { ref in
@@ -128,56 +126,40 @@ struct ServicePage: View {
 
     // MARK: Header
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+    private var headerSection: some View {
+        Section {
+            HStack(spacing: Theme.Spacing.s) {
                 Text(dateText)
-                    .font(.selahDisplay)
+                    .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
                 Button {
                     showDatePicker = true
                 } label: {
                     PIconView(.calendarBlank, size: 22)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.selahSecondary(tone: .slate))
+                .buttonStyle(.borderless)
                 .accessibilityLabel("Change date")
                 .accessibilityHint("Moves this service to another day")
             }
 
-            gatheringMenu
-
-            if isOther {
-                TextField("Gathering name", text: $service.gatheringName)
-                    .textInputAutocapitalization(.sentences)
-                    .modifier(ServiceFieldStyle())
-            }
-        }
-    }
-
-    private var gatheringMenu: some View {
-        let tone = ServicesLogic.gatheringTone(gatheringTitle)
-        return Menu {
             Picker("Gathering", selection: gatheringSelection) {
                 ForEach(gatheringNames, id: \.self) { name in
                     Text(name).tag(name)
                 }
                 Text("Other").tag(Self.otherTag)
             }
-        } label: {
-            HStack(spacing: Theme.Spacing.xs) {
-                Text(gatheringTitle)
-                    .font(.subheadline.weight(.semibold))
-                PIconView(.caretDown, size: 14, relativeTo: .subheadline)
+            .pickerStyle(.menu)
+            .accessibilityHint("Changes the type of gathering")
+
+            if isOther {
+                TextField("Gathering name", text: $service.gatheringName)
+                    .textInputAutocapitalization(.sentences)
             }
-            .foregroundStyle(tone.ink)
-            .padding(.horizontal, Theme.Spacing.m)
-            .frame(minHeight: Theme.minTapTarget)
-            .background(tone.fill, in: Capsule())
-            .contentShape(Capsule())
         }
-        .accessibilityLabel("Gathering, \(gatheringTitle)")
-        .accessibilityHint("Changes the type of gathering")
     }
 
     private var datePickerSheet: some View {
@@ -199,210 +181,134 @@ struct ServicePage: View {
     }
 
     // MARK: Collapsible sections
+    //
+    // Section(isExpanded:) only collapses in a `.sidebar` list (Apple's Section docs), so each collapsible part is a
+    // native DisclosureGroup: the first row of an inset grouped section, with the content rows inside it.
 
-    private var sermonBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            sectionHeader(
-                title: "Sermon",
-                isOpen: sermonOpen,
-                toggle: { toggle($sermonOpen) },
-                isFavourite: service.sermonFavourite,
-                favouriteLabel: "Favourite sermon",
-                toggleFavourite: { service.sermonFavourite.toggle() }
-            )
-            if sermonOpen {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    labelled("Title") {
-                        TextField("Sermon title", text: $service.sermonTitle, axis: .vertical)
-                            .textInputAutocapitalization(.words)
-                            .modifier(ServiceFieldStyle())
-                    }
-                    labelled("Sermonist") {
-                        TextField("Who preached", text: $service.sermonist)
-                            .textInputAutocapitalization(.words)
-                            .modifier(ServiceFieldStyle())
-                    }
-                    versesBlock(for: .sermon)
-                    labelled("Notes") {
-                        noteBox {
-                            RichNoteEditor(
-                                text: $service.sermonNote,
-                                owner: .service(service),
-                                field: .sermon,
-                                placeholder: "Sermon message",
-                                embedded: true
-                            )
-                        }
-                    }
-                }
-                .transition(.opacity)
+    private var sermonSection: some View {
+        Section {
+            DisclosureGroup(isExpanded: $sermonOpen) {
+                TextField("Title", text: $service.sermonTitle, axis: .vertical)
+                    .textInputAutocapitalization(.words)
+                    .frame(minHeight: Theme.minTapTarget)
+                    .accessibilityLabel("Sermon title")
+                TextField("Sermonist", text: $service.sermonist)
+                    .textInputAutocapitalization(.words)
+                    .frame(minHeight: Theme.minTapTarget)
+                    .accessibilityLabel("Sermonist")
+                verseRows(for: .sermon)
+                RichNoteEditor(
+                    text: $service.sermonNote,
+                    owner: .service(service),
+                    field: .sermon,
+                    placeholder: "Sermon message",
+                    embedded: true
+                )
+                .padding(.vertical, Theme.Spacing.xs)
+            } label: {
+                disclosureLabel(
+                    title: "Sermon",
+                    isFavourite: service.sermonFavourite,
+                    favouriteLabel: "Favourite sermon",
+                    toggleFavourite: { service.sermonFavourite.toggle() }
+                )
             }
         }
     }
 
-    private var classBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            sectionHeader(
-                title: "Bible class",
-                isOpen: classOpen,
-                toggle: { toggle($classOpen) },
-                isFavourite: service.classFavourite,
-                favouriteLabel: "Favourite Bible class",
-                toggleFavourite: { service.classFavourite.toggle() }
-            )
-            if classOpen {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    labelled("Lesson") {
-                        TextField("Lesson title", text: $service.classLesson, axis: .vertical)
-                            .textInputAutocapitalization(.words)
-                            .modifier(ServiceFieldStyle())
-                    }
-                    labelled("Taught by") {
-                        TextField("Who taught", text: $service.classTeacher)
-                            .textInputAutocapitalization(.words)
-                            .modifier(ServiceFieldStyle())
-                    }
-                    versesBlock(for: .bibleClass)
-                    labelled("Notes") {
-                        noteBox {
-                            RichNoteEditor(
-                                text: $service.classNote,
-                                owner: .service(service),
-                                field: .bibleClass,
-                                placeholder: "Class notes",
-                                embedded: true
-                            )
-                        }
-                    }
-                }
-                .transition(.opacity)
+    private var classSection: some View {
+        Section {
+            DisclosureGroup(isExpanded: $classOpen) {
+                TextField("Lesson", text: $service.classLesson, axis: .vertical)
+                    .textInputAutocapitalization(.words)
+                    .frame(minHeight: Theme.minTapTarget)
+                    .accessibilityLabel("Lesson")
+                TextField("Taught by", text: $service.classTeacher)
+                    .textInputAutocapitalization(.words)
+                    .frame(minHeight: Theme.minTapTarget)
+                    .accessibilityLabel("Taught by")
+                verseRows(for: .bibleClass)
+                RichNoteEditor(
+                    text: $service.classNote,
+                    owner: .service(service),
+                    field: .bibleClass,
+                    placeholder: "Class notes",
+                    embedded: true
+                )
+                .padding(.vertical, Theme.Spacing.xs)
+            } label: {
+                disclosureLabel(
+                    title: "Bible class",
+                    isFavourite: service.classFavourite,
+                    favouriteLabel: "Favourite Bible class",
+                    toggleFavourite: { service.classFavourite.toggle() }
+                )
             }
         }
     }
 
-    private func toggle(_ flag: Binding<Bool>) {
-        if reduceMotion {
-            flag.wrappedValue.toggle()
-        } else {
-            withAnimation(.easeOut(duration: 0.2)) { flag.wrappedValue.toggle() }
-        }
-    }
-
-    /// Section title with a caret that turns, and an icon-only favourite star.
-    /// The title and the star are separate buttons, so neither is nested in the other.
-    private func sectionHeader(
+    /// Disclosure row title with an icon-only favourite star beside the system chevron.
+    private func disclosureLabel(
         title: String,
-        isOpen: Bool,
-        toggle: @escaping () -> Void,
         isFavourite: Bool,
         favouriteLabel: String,
         toggleFavourite: @escaping () -> Void
     ) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
-            Button(action: toggle) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(title)
-                        .font(.selahTitle)
-                        .foregroundStyle(.primary)
-                    PIconView(.caretDown, size: 16)
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isOpen ? 0 : -90))
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(title)
-            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
-            .accessibilityHint(isOpen ? "Collapses this section" : "Expands this section")
-            .accessibilityAddTraits(.isHeader)
-
+            Text(title)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
             Button(action: toggleFavourite) {
-                PIconView(.star, filled: isFavourite, size: 24)
+                PIconView(.star, filled: isFavourite, size: 22)
                     .foregroundStyle(Color.accentColor)
                     .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel(favouriteLabel)
             .accessibilityValue(isFavourite ? "On" : "Off")
             .accessibilityAddTraits(isFavourite ? .isSelected : [])
         }
     }
 
-    // MARK: Building blocks
-
-    private func labelled<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-            Text(label)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            content()
-        }
-    }
-
-    private func noteBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(Theme.Spacing.s)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                Color(.secondarySystemBackground),
-                in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-            )
-    }
-
     // MARK: Verses
 
-    private func versesBlock(for part: VersePart) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("Verses")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            ForEach(verses(for: part)) { verse in
-                verseCard(verse)
-            }
-            Button {
-                pickerPart = part
-            } label: {
-                PLabel("Add verse", icon: .plus, size: 16, textStyle: .subheadline)
-            }
-            .buttonStyle(.selahSecondary(tone: .sky))
-            .accessibilityHint("Finds a verse to attach")
+    @ViewBuilder
+    private func verseRows(for part: VersePart) -> some View {
+        ForEach(verses(for: part)) { verse in
+            verseRow(verse)
         }
+        Button {
+            pickerPart = part
+        } label: {
+            PLabel("Add verse", icon: .plus, size: 18)
+                .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+        }
+        .accessibilityHint("Finds a verse to attach")
     }
 
-    private func verseCard(_ verse: VerseRef) -> some View {
-        let tone = Tone.sky
-        return ToneCard(tone: tone, padding: Theme.Spacing.s) {
-            HStack(alignment: .top, spacing: Theme.Spacing.xs) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                    Text(verse.reference)
-                        .font(.selahHeadline)
-                        .foregroundStyle(tone.ink)
-                    if !verse.textSnapshot.isEmpty {
-                        Text(verse.textSnapshot)
-                            .font(.selahVerseCompact)
-                            .foregroundStyle(.primary)
-                            .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Button {
-                    deleteVerse(verse)
-                } label: {
-                    PIconView(.x, size: 16, relativeTo: .body)
-                        .foregroundStyle(tone.ink)
-                        .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove \(verse.reference)")
+    private func verseRow(_ verse: VerseRef) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+            Text(verse.reference)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+            if !verse.textSnapshot.isEmpty {
+                Text(verse.textSnapshot)
+                    .font(.selahVerseCompact)
+                    .foregroundStyle(.primary)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
             }
         }
-        .accessibilityElement(children: .contain)
+        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                deleteVerse(verse)
+            } label: {
+                Label("Delete", picon: .trash)
+            }
+        }
         .contextMenu {
             Button(role: .destructive) {
                 deleteVerse(verse)
@@ -425,29 +331,31 @@ struct ServicePage: View {
 
     // MARK: Songs
 
-    private var songsBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text("Songs")
-                .font(.selahTitle)
-                .frame(minHeight: Theme.minTapTarget, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-
-            let songs = sortedSongs
-            ForEach(Array(songs.enumerated()), id: \.element.persistentModelID) { index, song in
-                SongCard(
-                    song: song,
-                    position: index + 1,
-                    canMoveUp: ServicesLogic.movedIndex(index, by: -1, count: songs.count) != nil,
-                    canMoveDown: ServicesLogic.movedIndex(index, by: 1, count: songs.count) != nil,
-                    onMove: { step in moveSong(at: index, by: step) },
-                    onDelete: { deleteSong(at: index) }
-                )
+    private var songsSection: some View {
+        Section {
+            DisclosureGroup(isExpanded: $songsOpen) {
+                let songs = sortedSongs
+                ForEach(Array(songs.enumerated()), id: \.element.persistentModelID) { index, song in
+                    SongRow(
+                        song: song,
+                        position: index + 1,
+                        canMoveUp: ServicesLogic.movedIndex(index, by: -1, count: songs.count) != nil,
+                        canMoveDown: ServicesLogic.movedIndex(index, by: 1, count: songs.count) != nil,
+                        onMove: { step in moveSong(at: index, by: step) },
+                        onDelete: { deleteSong(at: index) }
+                    )
+                }
+                .onMove(perform: reorderSongs)
+                Button(action: addSong) {
+                    PLabel("Add song", icon: .musicNotes, size: 18)
+                        .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+                }
+            } label: {
+                Text("Songs")
+                    .font(.headline)
+                    .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
             }
-
-            Button(action: addSong) {
-                PLabel("Add song", icon: .musicNotes, size: 16, textStyle: .subheadline)
-            }
-            .buttonStyle(.selahSecondary(tone: .sage))
         }
     }
 
@@ -474,6 +382,12 @@ struct ServicePage: View {
         renumber(current)
     }
 
+    private func reorderSongs(from source: IndexSet, to destination: Int) {
+        var current = sortedSongs
+        current.move(fromOffsets: source, toOffset: destination)
+        renumber(current)
+    }
+
     private func renumber(_ songs: [Song]) {
         for (index, song) in songs.enumerated() {
             song.order = index
@@ -481,26 +395,11 @@ struct ServicePage: View {
     }
 }
 
-// MARK: - Field style
+// MARK: - Song row
 
-/// Clean full-width text field: filled rounded box, 48pt tall.
-private struct ServiceFieldStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.vertical, Theme.Spacing.s)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-            .background(
-                Color(.secondarySystemBackground),
-                in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-            )
-    }
-}
-
-// MARK: - Song card
-
-/// One song: hymn number on top (short, number pad), title below at full width, so typing never hides words.
-private struct SongCard: View {
+/// One song row: hymn number above, title below, so typing never hides words. Swipe to delete;
+/// Move up / Move down in the long-press menu for VoiceOver and Switch Control (drag handles show in Edit mode).
+private struct SongRow: View {
     @Bindable var song: Song
     let position: Int
     let canMoveUp: Bool
@@ -508,50 +407,31 @@ private struct SongCard: View {
     let onMove: (Int) -> Void
     let onDelete: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var typeSize
-
     var body: some View {
-        SurfaceCard {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    TextField("Hymn number", text: $song.hymnNumber)
-                        .keyboardType(.numberPad)
-                        .frame(
-                            maxWidth: typeSize.isAccessibilitySize ? .infinity : 180,
-                            minHeight: Theme.minTapTarget,
-                            alignment: .leading
-                        )
-                        .accessibilityLabel("Song \(position) hymn number")
-                    Spacer(minLength: 0)
-                    Menu {
-                        Button {
-                            onMove(-1)
-                        } label: {
-                            Label("Move up", picon: .caretUp)
-                        }
-                        .disabled(!canMoveUp)
-                        Button {
-                            onMove(1)
-                        } label: {
-                            Label("Move down", picon: .caretDown)
-                        }
-                        .disabled(!canMoveDown)
-                        Button(role: .destructive, action: onDelete) {
-                            Label("Delete song", picon: .trash)
-                        }
-                    } label: {
-                        PIconView(.dotsThree, size: 22)
-                            .foregroundStyle(.secondary)
-                            .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Song \(position) options")
-                }
-                Divider()
-                TextField("Song title", text: $song.title)
-                    .textInputAutocapitalization(.words)
-                    .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-                    .accessibilityLabel("Song \(position) title")
+        VStack(alignment: .leading, spacing: 0) {
+            TextField("Hymn number", text: $song.hymnNumber)
+                .keyboardType(.numberPad)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+                .accessibilityLabel("Song \(position) hymn number")
+            TextField("Song title", text: $song.title)
+                .textInputAutocapitalization(.words)
+                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+                .accessibilityLabel("Song \(position) title")
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", picon: .trash)
+            }
+        }
+        .contextMenu {
+            Button { onMove(-1) } label: { Label("Move up", picon: .caretUp) }
+                .disabled(!canMoveUp)
+            Button { onMove(1) } label: { Label("Move down", picon: .caretDown) }
+                .disabled(!canMoveDown)
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete song", picon: .trash)
             }
         }
     }

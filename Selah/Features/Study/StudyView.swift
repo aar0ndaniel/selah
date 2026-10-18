@@ -141,7 +141,6 @@ struct StudyView: View {
             year: $heatmapYear,
             unitSingular: "note",
             unitPlural: "notes",
-            streak: ActivityCalendar.studyStreak(dates: dates, today: now),
             loggedToday: dates.contains { Calendar.current.isDate($0, inSameDayAs: now) },
             onLogToday: logToday,
             today: now

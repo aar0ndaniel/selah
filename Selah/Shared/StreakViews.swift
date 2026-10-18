@@ -1,15 +1,17 @@
 import SwiftUI
 
-// Streak visuals for Today: three pills, a week strip, and the celebration when a streak goes up.
+// Streak visuals for Today: one coloured streak tile and the celebration when the streak goes up.
 
-enum StreakKind: CaseIterable, Hashable, Sendable {
-    case study, service, overall
+enum StreakKind: String, CaseIterable, Hashable, Sendable {
+    case study, service
+
+    /// `@AppStorage` key for the streak shown on Today.
+    static let storageKey = "todayStreakKind"
 
     var title: String {
         switch self {
         case .study: return "Study"
         case .service: return "Service"
-        case .overall: return "Overall"
         }
     }
 
@@ -17,20 +19,34 @@ enum StreakKind: CaseIterable, Hashable, Sendable {
         switch self {
         case .study: return summary.study
         case .service: return summary.service
-        case .overall: return summary.overall
         }
     }
+
+    /// Solid tile colour. Study uses the accent; Service uses sage ink (deep green in light mode, pale sage in
+    /// dark mode).
+    var tileFill: Color {
+        switch self {
+        case .study: return Theme.accent
+        case .service: return Tone.sage.ink
+        }
+    }
+
+    /// Label colour on `tileFill`: the opposite of the system background, so it flips with the mode.
+    /// Study: white on the accent in light, black on the lighter accent in dark. Service: white on deep sage in
+    /// light (about 8:1), black on pale sage in dark (about 13:1).
+    var tileLabel: Color { Color(.systemBackground) }
 }
 
-// MARK: - Pill
+// MARK: - Tile
 
-/// One streak: a flame and the number of days. Coral when a streak is running, quiet slate at zero.
-/// The flame is filled once today is done. Change `celebration` to play the celebration.
-struct StreakPill: View {
+/// One streak as a solid coloured tile: big number, "day streak, Study", and the best run. No icon.
+/// Change `celebration` to play the celebration (bounce, particles, haptic).
+struct StreakTile: View {
     let kind: StreakKind
     let count: Int
+    let best: Int
     let done: Bool
-    /// Bump this number to play the celebration (bounce, particles, haptic).
+    /// Bump this number to play the celebration.
     var celebration: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -38,45 +54,36 @@ struct StreakPill: View {
     @State private var burstProgress: CGFloat = 0
     @State private var showBurst = false
 
-    private var tone: Tone { count > 0 ? .coral : .slate }
+    private var spokenDays: String { count == 1 ? "1 day" : "\(count) days" }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.xxs) {
-            HStack(spacing: Theme.Spacing.xxs) {
-                PIconView(.flame, filled: done, size: 24, relativeTo: .title3)
-                    .foregroundStyle(tone.ink)
-                    .scaleEffect(bounced ? 1.4 : 1)
-                    .background {
-                        if showBurst {
-                            ParticleBurst(progress: burstProgress)
-                        }
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+            Text("\(count)")
+                .font(.selahStatLarge)
+                .foregroundStyle(kind.tileLabel)
+                .scaleEffect(bounced ? 1.25 : 1, anchor: .leading)
+                .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(count)))
+                .animation(.easeInOut(duration: 0.3), value: count)
+                .background(alignment: .leading) {
+                    if showBurst {
+                        ParticleBurst(progress: burstProgress, colour: kind.tileLabel)
                     }
-                Text("\(count)")
-                    .font(.selahStat)
-                    .foregroundStyle(tone.ink)
-                    .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(count)))
-                    .animation(.easeInOut(duration: 0.3), value: count)
-            }
-            Text(kind.title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(tone.inkSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                }
+            Text("day streak \u{00B7} \(kind.title)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(kind.tileLabel)
+            Text("Best \(best)")
+                .font(.footnote)
+                .foregroundStyle(kind.tileLabel.opacity(0.85))
         }
-        .padding(.vertical, Theme.Spacing.s)
-        .padding(.horizontal, Theme.Spacing.xs)
-        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget)
-        .background(tone.fill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.m)
+        .background(kind.tileFill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.title) streak")
-        .accessibilityValue(accessibilityValue)
+        .accessibilityLabel("\(kind.title) streak, \(spokenDays), best \(best)")
+        .accessibilityValue(done ? "Done today" : "")
         .onChange(of: celebration) { _, _ in play() }
         .sensoryFeedback(.success, trigger: celebration)
-    }
-
-    private var accessibilityValue: String {
-        let days = count == 1 ? "1 day" : "\(count) days"
-        return done ? "\(days), done today" : days
     }
 
     private func play() {
@@ -95,12 +102,12 @@ struct StreakPill: View {
     }
 }
 
-/// Small circles that fly out from the centre and fade. Coral, teal and sky.
+/// Small circles that fly out from the number and fade, in the tile's label colour.
 private struct ParticleBurst: View {
     let progress: CGFloat
+    let colour: Color
 
-    private let colours: [Color] = [Tone.coral.ink, Theme.brandInk, Tone.sky.ink]
-    private let count = 10
+    private let count = 12
 
     var body: some View {
         ZStack {
@@ -115,16 +122,16 @@ private struct ParticleBurst: View {
     // Split out so the type checker doesn't time out on one long expression.
     private func particle(_ index: Int) -> some View {
         let angle: Double = Double(index) / Double(count) * 2.0 * Double.pi
-        let distance: CGFloat = 32.0 * progress
+        let distance: CGFloat = 40.0 * progress
         let dx: CGFloat = CGFloat(cos(angle)) * distance
         let dy: CGFloat = CGFloat(sin(angle)) * distance
         let scale: CGFloat = 1.0 - progress * 0.5
-        let alpha: Double = Double(1.0 - progress) * 0.85
-        let colour: Color = colours[index % colours.count]
+        let strength: Double = index % 2 == 0 ? 0.9 : 0.55
+        let alpha: Double = Double(1.0 - progress) * strength
         return Circle()
             .fill(colour)
-            .frame(width: 5, height: 5)
-            .offset(x: dx, y: dy)
+            .frame(width: 6, height: 6)
+            .offset(x: dx + 24, y: dy)
             .scaleEffect(scale)
             .opacity(alpha)
     }
@@ -196,131 +203,111 @@ struct WeekStrip: View {
 
 // MARK: - Section with celebration
 
-/// The streak row on Today: three pills and the week strip.
+/// The streak tile on Today: only the kind the user chose in Settings.
 ///
-/// Celebration: when today becomes done for a streak and that date was not celebrated yet (stored per kind in
-/// `@AppStorage`), the pill first shows yesterday's count, then rolls up to today's with the bounce and burst.
-/// It only plays while `isActive` is true (Today is on screen with nothing on top of it), so it is never wasted
-/// behind a full-screen editor.
+/// Celebration: when today becomes done for the streak and that date was not celebrated yet (stored per kind in
+/// `@AppStorage`), the tile first shows yesterday's count, then rolls up to today's with the bounce and burst.
+/// It only plays while `isActive` is true (Today is on screen with nothing on top of it).
 struct StreakSection: View {
+    let kind: StreakKind
     let summary: StreakSummary
-    let week: [WeekDay]
     let today: Date
     var isActive: Bool = true
-    /// Today shows the habit week card instead, so it turns the strip off.
-    var showsWeekStrip: Bool = true
 
     @AppStorage("streak.celebrated.study") private var celebratedStudy = ""
     @AppStorage("streak.celebrated.service") private var celebratedService = ""
-    @AppStorage("streak.celebrated.overall") private var celebratedOverall = ""
 
-    @State private var shown: [StreakKind: Int] = [:]
-    @State private var ticks: [StreakKind: Int] = [:]
-    @State private var celebrating: Set<StreakKind> = []
-
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var shown: Int?
+    @State private var tick = 0
+    @State private var celebrating = false
 
     private var dayKey: String {
         let parts = Calendar.current.dateComponents([.year, .month, .day], from: today)
         return "\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
     }
 
-    private func lastCelebrated(_ kind: StreakKind) -> String {
-        switch kind {
-        case .study: return celebratedStudy
-        case .service: return celebratedService
-        case .overall: return celebratedOverall
-        }
+    private var lastCelebrated: String {
+        kind == .study ? celebratedStudy : celebratedService
     }
 
-    private func markCelebrated(_ kind: StreakKind) {
-        switch kind {
-        case .study: celebratedStudy = dayKey
-        case .service: celebratedService = dayKey
-        case .overall: celebratedOverall = dayKey
-        }
+    private func markCelebrated() {
+        if kind == .study { celebratedStudy = dayKey } else { celebratedService = dayKey }
     }
 
-    private func isPending(_ kind: StreakKind) -> Bool {
-        kind.count(in: summary).doneToday && lastCelebrated(kind) != dayKey
-    }
-
-    private func displayed(_ kind: StreakKind) -> Int {
-        let count = kind.count(in: summary)
-        if let value = shown[kind] { return value }
-        return isPending(kind) ? max(count.current - 1, 0) : count.current
+    private var count: StreakCount { kind.count(in: summary) }
+    private var isPending: Bool { count.doneToday && lastCelebrated != dayKey }
+    private var displayed: Int {
+        if let shown { return shown }
+        return isPending ? max(count.current - 1, 0) : count.current
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            let layout = typeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: Theme.Spacing.xs))
-                : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
-            layout {
-                ForEach(StreakKind.allCases, id: \.self) { kind in
-                    StreakPill(
-                        kind: kind,
-                        count: displayed(kind),
-                        done: kind.count(in: summary).doneToday,
-                        celebration: ticks[kind] ?? 0
-                    )
-                }
-            }
-            if showsWeekStrip {
-                SurfaceCard {
-                    WeekStrip(days: week)
-                }
-            }
-        }
+        StreakTile(
+            kind: kind,
+            count: displayed,
+            best: max(count.best, count.current),
+            done: count.doneToday,
+            celebration: tick
+        )
         .onAppear { sync() }
         .onChange(of: summary) { _, _ in sync() }
         .onChange(of: isActive) { _, _ in sync() }
+        .onChange(of: kind) { _, _ in
+            shown = nil
+            celebrating = false
+            sync()
+        }
     }
 
-    /// Brings the shown counts in line with the data, and plays any celebration that is due.
+    /// Brings the shown count in line with the data, and plays the celebration if it is due.
     private func sync() {
-        for kind in StreakKind.allCases {
-            let count = kind.count(in: summary)
-            if isPending(kind) {
-                guard isActive else {
-                    // Not on screen: hold yesterday's count until the user sees it.
-                    shown[kind] = max(count.current - 1, 0)
-                    continue
-                }
-                guard !celebrating.contains(kind) else { continue }
-                celebrating.insert(kind)
-                shown[kind] = max(count.current - 1, 0)
-                markCelebrated(kind)
-                let target = count.current
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(450))
-                    shown[kind] = target
-                    ticks[kind, default: 0] += 1
-                    celebrating.remove(kind)
-                }
-            } else if !celebrating.contains(kind) {
-                shown[kind] = count.current
+        if isPending {
+            guard isActive else {
+                // Not on screen: hold yesterday's count until the user sees it.
+                shown = max(count.current - 1, 0)
+                return
             }
+            guard !celebrating else { return }
+            celebrating = true
+            shown = max(count.current - 1, 0)
+            markCelebrated()
+            let target = count.current
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                shown = target
+                tick += 1
+                celebrating = false
+            }
+        } else if !celebrating {
+            shown = count.current
         }
     }
 }
 
-#Preview("Streaks") {
-    let today = Date()
-    let calendar = Calendar.current
-    let studyDates = (0..<4).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
-    let input = StreakInput(
-        studyDates: studyDates,
-        serviceDates: [today],
-        meetingWeekdays: [calendar.component(.weekday, from: today)],
-        readingSpans: [ReadingSpan(start: studyDates.last ?? today, end: nil)]
-    )
-    ScrollView {
-        StreakSection(
-            summary: Streaks.summary(input, today: today),
-            week: Streaks.week(input, today: today),
-            today: today
+private struct StreakPreview: View {
+    let kind: StreakKind
+
+    var body: some View {
+        let today = Date()
+        let calendar = Calendar.current
+        let studyDates = (0..<4).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
+        let input = StreakInput(
+            studyDates: studyDates,
+            serviceDates: [today],
+            meetingWeekdays: [calendar.component(.weekday, from: today)],
+            readingSpans: [ReadingSpan(start: studyDates.last ?? today, end: nil)]
         )
-        .padding(Theme.Spacing.m)
+        ScrollView {
+            StreakSection(kind: kind, summary: Streaks.summary(input, today: today), today: today)
+                .padding(Theme.Spacing.m)
+        }
     }
+}
+
+#Preview("Streak, study") {
+    StreakPreview(kind: .study)
+}
+
+#Preview("Streak, service") {
+    StreakPreview(kind: .service)
 }

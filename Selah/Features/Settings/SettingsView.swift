@@ -56,6 +56,8 @@ private struct SettingsForm: View {
     @AppStorage(ReminderDefaults.readingKey) private var defaultReadingMinutes = ReminderDefaults.fallbackReadingMinutes
     @AppStorage(ReminderDefaults.serviceKey) private var defaultServiceReminderMinutes = ReminderDefaults.fallbackServiceMinutes
 
+    @AppStorage(StreakKind.storageKey) private var todayStreakKind = StreakKind.study.rawValue
+
     @State private var photoItem: PhotosPickerItem?
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var showReset = false
@@ -85,6 +87,7 @@ private struct SettingsForm: View {
             meetingSection
             quietTimeSection
             reminderSection
+            todaySection
             bibleSection
             appearanceSection
             dataSection
@@ -279,6 +282,26 @@ private struct SettingsForm: View {
             Text("Reminders")
         } footer: {
             Text("These times are used for new books and meeting days. You can change each one separately.")
+        }
+    }
+
+    // MARK: Today
+
+    private var todaySection: some View {
+        Section {
+            Picker(selection: $todayStreakKind) {
+                ForEach(StreakKind.allCases, id: \.rawValue) { kind in
+                    Text(kind.title).tag(kind.rawValue)
+                }
+            } label: {
+                TileLabel(title: "Streak on Today", icon: .flame, tone: .coral)
+            }
+            .pickerStyle(.menu)
+            .frame(minHeight: 44)
+        } header: {
+            Text("Today")
+        } footer: {
+            Text("Choose which streak shows on Today.")
         }
     }
 

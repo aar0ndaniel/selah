@@ -11,12 +11,13 @@ import SwiftUI
 //   .disabled        quiet grey, for things that are off
 //
 // Contrast (all text is semibold footnote/subheadline, so it needs 4.5:1):
-// - soft / outlined: `tone.ink` on `tone.fill`, 7.3:1 or better in light and 8.2:1 in dark (Theme.swift).
-// - solid: the fill is `tone.ink`, the label is `systemBackground` (white in light, black in dark). Every ink is at
-//   least 7.3:1 against its own pale fill, and that fill is itself close to white, so ink against pure white is at
-//   least that high. In dark mode inks are light and the label is black, again above the 8.2:1 dark figure.
+// - soft / outlined: `tone.ink` on `tone.pillFill`, 7.3:1 or better in light and 6.3:1 or better in dark (#2C2C2E).
+// - solid: the fill is `tone.ink`, the label is `systemBackground` (white in light, black in dark). Every light ink is
+//   at least 7.3:1 against its own pale fill, and that fill is itself close to white, so ink against pure white is at
+//   least that high. In dark mode inks are light tonal colours (at least 7.7:1 on black) and the label is black.
 //   White on the tone's mid-tone fill would NOT pass, which is why the ink is used as the solid colour.
-// - accent: white on #D33E43 is 4.6:1, black on dark #E2585D is 5.8:1 (same pair as the primary button).
+// - accent: `Theme.onAccent` on the accent: white on #D33E43 is 4.6:1, deep red #2A0004 on dark #E2585D is 5.3:1
+//   (same pair as the primary button).
 // - neutral: `Tone.slate.ink` on `systemBackground`; slate ink is at least 7.3:1 on the pale slate fill, so on white
 //   it is higher. neutralDark is `label` on `systemBackground`, the system maximum.
 // - disabled: not interactive and not required to meet contrast, but `secondaryLabel` on a tertiary fill is kept
@@ -61,7 +62,8 @@ struct SelahPill: View {
     private var foreground: Color {
         switch style {
         case .soft(let tone), .outlined(let tone): return tone.ink
-        case .solid, .accent, .neutralDark: return Color(.systemBackground)
+        case .solid, .neutralDark: return Color(.systemBackground)
+        case .accent: return Theme.onAccent
         case .neutral: return Tone.slate.ink
         case .disabled: return Color(.secondaryLabel)
         }
@@ -69,7 +71,7 @@ struct SelahPill: View {
 
     private var fill: Color {
         switch style {
-        case .soft(let tone), .outlined(let tone): return tone.fill
+        case .soft(let tone), .outlined(let tone): return tone.pillFill
         case .solid(let tone): return tone.ink
         case .accent: return Theme.accent
         case .neutral: return Color(.systemBackground)
@@ -93,7 +95,7 @@ struct SelahPill: View {
                 PIconView(icon, size: size == .small ? 14 : 16, relativeTo: size == .small ? .footnote : .subheadline)
             }
             Text(text)
-                .font((size == .small ? Font.footnote : Font.subheadline).weight(.semibold))
+                .font((size == .small ? Font.selahLabelSmall : Font.selahLabel).weight(.semibold))
         }
         .foregroundStyle(foreground)
         .padding(.horizontal, size == .small ? Theme.Spacing.s : Theme.Spacing.m - 2)

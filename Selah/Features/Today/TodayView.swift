@@ -49,6 +49,10 @@ struct TodayView: View {
     @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 68
     @State private var heatmapYear = Calendar.current.component(.year, from: Date())
 
+    /// Which streak Today shows; chosen in Settings.
+    @AppStorage(StreakKind.storageKey) private var streakKindRaw = StreakKind.study.rawValue
+    private var streakKind: StreakKind { StreakKind(rawValue: streakKindRaw) ?? .study }
+
     private var profile: UserProfile? { profiles.first }
     private var translation: Translation { profile?.translation ?? .kjv }
 
@@ -106,17 +110,16 @@ struct TodayView: View {
                             .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                     }
                     StreakSection(
+                        kind: streakKind,
                         summary: Streaks.summary(input, today: now),
-                        week: Streaks.week(input, today: now),
                         today: now,
-                        isActive: streaksAreVisible,
-                        showsWeekStrip: false
+                        isActive: streaksAreVisible
                     )
                     verseCard
                     readingSection(now: now)
                     habitWeekSection(now: now, input: input)
                     gatheringSection(now: now)
-                    readingHeatmap(now: now, streak: Streaks.summary(input, today: now).study.current)
+                    readingHeatmap(now: now)
                     recentNotesSection
                 }
                 .padding(.horizontal, Theme.Spacing.m)
@@ -169,7 +172,7 @@ struct TodayView: View {
             Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .selahEyebrow()
             Text(greeting)
-                .font(.selahDisplay)
+                .font(.selahTitle)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -198,7 +201,7 @@ struct TodayView: View {
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                         Text(verse.textSnapshot)
-                            .font(.selahVerseLarge)
+                            .font(.selahVerse)
                             .lineSpacing(4)
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -536,7 +539,7 @@ struct TodayView: View {
         }
     }
 
-    private func readingHeatmap(now: Date, streak: Int) -> some View {
+    private func readingHeatmap(now: Date) -> some View {
         ActivityHeatmapCard(
             title: "Reading",
             subtitle: "Read a little, even on busy days",
@@ -545,7 +548,6 @@ struct TodayView: View {
             year: $heatmapYear,
             unitSingular: "note",
             unitPlural: "notes",
-            streak: streak,
             loggedToday: entries.contains { Calendar.current.isDate($0.date, inSameDayAs: now) },
             onLogToday: { router.pendingAction = .writeTodayEntry },
             today: now
