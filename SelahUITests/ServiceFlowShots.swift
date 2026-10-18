@@ -45,14 +45,16 @@ final class ServiceFlowShots: XCTestCase {
 
         // 3. Fill in the sermon.
         type(into: first([app.textFields["Title"], app.textViews["Title"]]), "Grace that keeps")
-        type(into: first([app.textFields["Sermonist"]]), "Pastor Mensah")
+        type(into: first([app.textFields["Sermonist"]]), "Pastor Mensah
+")
         dismissKeyboard(app)
         snap(app, "s\(prefix)3-sermon-filled-\(mode)")
 
         // 4. Add a verse to the sermon.
         tap(first([app.buttons["Add verse"]]))
         pause(1.5)
-        if let search = first([app.searchFields.firstMatch], timeout: 4) {
+        if let search = first([app.searchFields.firstMatch, app.textFields["John 3:16 or Psalm 23"]], timeout: 4),
+           search.exists, search.isHittable {
             search.tap()
             search.typeText("Rom 8:28")
             pause(1.5)
@@ -70,7 +72,8 @@ final class ServiceFlowShots: XCTestCase {
         tap(first([app.buttons["Bible class"], app.staticTexts["Bible class"]]))
         pause()
         type(into: first([app.textFields["Lesson"], app.textViews["Lesson"]]), "Walking in the Spirit")
-        type(into: first([app.textFields["Taught by"]]), "Deacon Owusu")
+        type(into: first([app.textFields["Taught by"]]), "Deacon Owusu
+")
         dismissKeyboard(app)
         snap(app, "s\(prefix)6-bible-class-\(mode)")
 
@@ -80,7 +83,8 @@ final class ServiceFlowShots: XCTestCase {
         tap(first([app.buttons["Add song"]]))
         pause()
         type(into: first([app.textFields["Hymn number"]]), "212")
-        type(into: first([app.textFields["Song title"]]), "Great is thy faithfulness")
+        type(into: first([app.textFields["Song title"]]), "Great is thy faithfulness
+")
         dismissKeyboard(app)
         snap(app, "s\(prefix)7-songs-\(mode)")
     }
@@ -97,20 +101,20 @@ final class ServiceFlowShots: XCTestCase {
 
     @MainActor
     private func tap(_ element: XCUIElement?) {
-        guard let element, element.isHittable else { return }
+        guard let element, element.exists, element.isHittable else { return }
         element.tap()
     }
 
     @MainActor
     private func type(into element: XCUIElement?, _ text: String) {
-        guard let element, element.isHittable else { return }
+        guard let element, element.exists, element.isHittable else { return }
         element.tap()
         element.typeText(text)
     }
 
     @MainActor
     private func dismissKeyboard(_ app: XCUIApplication) {
-        if app.keyboards.count > 0 {
+        if app.keyboards.firstMatch.exists {
             if app.toolbars.buttons["Done"].exists {
                 app.toolbars.buttons["Done"].tap()
             } else if app.buttons["format-done"].exists {
