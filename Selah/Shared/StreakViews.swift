@@ -105,20 +105,28 @@ private struct ParticleBurst: View {
     var body: some View {
         ZStack {
             ForEach(0..<count, id: \.self) { index in
-                let angle = Double(index) / Double(count) * 2 * Double.pi
-                Circle()
-                    .fill(colours[index % colours.count])
-                    .frame(width: 5, height: 5)
-                    .offset(
-                        x: CGFloat(cos(angle)) * 32 * progress,
-                        y: CGFloat(sin(angle)) * 32 * progress
-                    )
-                    .scaleEffect(1 - progress * 0.5)
-                    .opacity(Double(1 - progress) * 0.85)
+                particle(index)
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    // Split out so the type checker doesn't time out on one long expression.
+    private func particle(_ index: Int) -> some View {
+        let angle: Double = Double(index) / Double(count) * 2.0 * Double.pi
+        let distance: CGFloat = 32.0 * progress
+        let dx: CGFloat = CGFloat(cos(angle)) * distance
+        let dy: CGFloat = CGFloat(sin(angle)) * distance
+        let scale: CGFloat = 1.0 - progress * 0.5
+        let alpha: Double = Double(1.0 - progress) * 0.85
+        let colour: Color = colours[index % colours.count]
+        return Circle()
+            .fill(colour)
+            .frame(width: 5, height: 5)
+            .offset(x: dx, y: dy)
+            .scaleEffect(scale)
+            .opacity(alpha)
     }
 }
 
