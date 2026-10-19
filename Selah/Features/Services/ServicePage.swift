@@ -102,13 +102,13 @@ struct ServicePage: View {
                 if sortedSongs.count > 1 {
                     ToolbarItem(placement: .topBarTrailing) { EditButton() }
                 }
-                if focus != nil {
-                    // The number pad has no return key, so every field gets a way to close the keyboard.
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") { focus = nil }
-                            .accessibilityIdentifier("keyboard-done")
-                    }
+                // The number pad has no return key, so every field gets a way to close the keyboard.
+                // Always present: adding/removing it as focus changes rebuilt the keyboard bar mid-tap
+                // and the next field lost focus.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focus = nil }
+                        .accessibilityIdentifier("keyboard-done")
                 }
             }
             // Pushed in the same stack rather than shown as a sheet.
