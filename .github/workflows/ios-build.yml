@@ -37,6 +37,7 @@ jobs:
           ls -lh Selah.ipa
       - name: Upload iOS IPA artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        continue-on-error: true
         with:
           name: Selah-iOS-IPA
           retention-days: 3
@@ -84,6 +85,7 @@ jobs:
       - name: Save test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        continue-on-error: true
         with:
           name: test-results
           retention-days: 2
@@ -129,6 +131,7 @@ jobs:
       - name: Upload screenshots
         if: ${{ always() && (contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        continue-on-error: true
         with:
           name: screenshots
           retention-days: 3
@@ -137,6 +140,7 @@ jobs:
       - name: Save screenshot results
         if: ${{ always() && (contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        continue-on-error: true
         with:
           name: shots-results
           retention-days: 2
