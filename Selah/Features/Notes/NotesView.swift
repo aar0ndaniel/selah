@@ -184,8 +184,7 @@ struct NotesView: View {
                 .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(verse.reference.verseStart == nil ? 8 : nil)
                 .multilineTextAlignment(.leading)
-            ShareLink(item: "\(verse.text)
-\(title)") {
+            ShareLink(item: "\(verse.text)\n\(title)") {
                 Label {
                     Text("Share")
                 } icon: {
