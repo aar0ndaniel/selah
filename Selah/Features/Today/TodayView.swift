@@ -184,42 +184,39 @@ struct TodayView: View {
     private var verseCard: some View {
         if let verse = verseEntryToday?.bestVerse {
             let reference = "\(verse.reference) (\(verse.translation.shortName))"
-            ToneCard(tone: .sand, padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    HStack(alignment: .center) {
-                        PIconView(.quotes, filled: true, size: 30, relativeTo: .largeTitle)
-                            .foregroundStyle(Tone.sand.ink)
-                        Spacer(minLength: 0)
-                        Text("Verse of the day")
-                            .font(.selahEyebrow)
-                            .textCase(.uppercase)
-                            .tracking(1.0)
-                            .foregroundStyle(Tone.sand.inkSecondary)
-                            .accessibilityAddTraits(.isHeader)
-                    }
+            // Centred and airy on the plain page, no card (docs/UI-REFERENCES.md section 1).
+            VStack(spacing: Theme.Spacing.s) {
+                PIconView(.sparkle, filled: true, size: 20, relativeTo: .title3)
+                    .foregroundStyle(Theme.accent)
+                Text("Verse of the day")
+                    .selahEyebrow()
+                    .accessibilityAddTraits(.isHeader)
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                        Text(verse.textSnapshot)
-                            .font(.selahVerse)
-                            .lineSpacing(4)
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        OnCardPill(text: reference, tone: .sand)
-                    }
-                    .accessibilityElement(children: .combine)
+                VStack(spacing: Theme.Spacing.s) {
+                    Text(verse.textSnapshot)
+                        .font(.selahVerse)
+                        .lineSpacing(5)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    SelahPill(reference, style: .neutral)
+                }
+                .accessibilityElement(children: .combine)
 
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: Theme.Spacing.s) {
-                            shareButton(text: verse.textSnapshot, reference: reference)
-                            changeVerseButton
-                        }
-                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                            shareButton(text: verse.textSnapshot, reference: reference)
-                            changeVerseButton
-                        }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        shareButton(text: verse.textSnapshot, reference: reference)
+                        changeVerseButton
+                    }
+                    VStack(spacing: 0) {
+                        shareButton(text: verse.textSnapshot, reference: reference)
+                        changeVerseButton
                     }
                 }
             }
+            .padding(.horizontal, Theme.Spacing.s)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(maxWidth: .infinity)
         } else if plans.isEmpty {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
@@ -253,15 +250,15 @@ struct TodayView: View {
         }
     }
 
+    /// Small tertiary action: accent text with an icon, no container.
     private func shareButton(text: String, reference: String) -> some View {
         ShareLink(item: "\(text) \u{2014} \(reference)") {
             Label("Share", picon: .export)
                 .font(.selahLabel.weight(.semibold))
-                .foregroundStyle(Tone.sand.ink)
-                .padding(.horizontal, Theme.Spacing.m)
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, Theme.Spacing.s)
                 .frame(minHeight: Theme.minTapTarget)
-                .background(Color(.systemBackground).opacity(0.6), in: Capsule())
-                .contentShape(Capsule())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Share verse")

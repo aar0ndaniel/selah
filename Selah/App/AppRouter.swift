@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 
 enum AppTab: Hashable, CaseIterable {
-    case today, study, services, notes, search
+    case today, study, services, notes, songs
 
     /// Visible tab title (also the VoiceOver label and the XCUITest handle).
     var title: String {
@@ -11,7 +11,7 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return "Study"
         case .services: return "Services"
         case .notes: return "Notes"
-        case .search: return "Search"
+        case .songs: return "Songs"
         }
     }
 
@@ -22,7 +22,7 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return .bookOpen
         case .services: return .church
         case .notes: return .note
-        case .search: return .magnifyingGlass
+        case .songs: return .musicNotes
         }
     }
 
@@ -32,13 +32,15 @@ enum AppTab: Hashable, CaseIterable {
         case .study: return "tab-study"
         case .services: return "tab-services"
         case .notes: return "tab-notes"
-        case .search: return "tab-search"
+        case .songs: return "tab-songs"
         }
     }
 }
 
 enum PlusAction: Hashable {
     case writeTodayEntry, addBook, newService, newNote
+    /// Songs tab: open the editor for a new song.
+    case addSong
     /// Quiet time: open today's service page (create it when there is none). Handled by ServicesView.
     case openTodayService
 }

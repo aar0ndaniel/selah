@@ -683,6 +683,10 @@ private struct ServiceSongFields: View {
     let onPick: (LibrarySong) -> Void
     let onTypeChange: () -> Void
 
+    @Environment(\.modelContext) private var modelContext
+    /// Hymnary suggestions for the title (hymns only).
+    @State private var lookup = HymnaryLookupModel()
+
     private var titleFocused: Bool {
         focus.wrappedValue == .partTitle(part.persistentModelID)
     }
@@ -703,6 +707,7 @@ private struct ServiceSongFields: View {
             set: { newValue in
                 guard newValue != part.songType else { return }
                 part.songType = newValue
+                if newValue != .hymn { lookup.clear() }
                 onTypeChange()
             }
         )
@@ -740,6 +745,9 @@ private struct ServiceSongFields: View {
             capitalization: .sentences,
             identifier: "field-part-title-\(index)"
         )
+        .onChange(of: part.title) { _, newValue in
+            if part.songType == .hymn, titleFocused { lookup.update(query: newValue) }
+        }
 
         ForEach(Array(suggestions.enumerated()), id: \.element.persistentModelID) { position, song in
             Button {
@@ -765,15 +773,43 @@ private struct ServiceSongFields: View {
             .accessibilityLabel("Use \(song.title), \(Self.detail(for: song))")
         }
 
+        // Local songs first (above), then Hymnary.
+        if part.songType == .hymn {
+            if titleFocused {
+                HymnarySuggestionRows(model: lookup, identifier: "song-\(index)") { pickHymnary($0) }
+            }
+            HymnaryLyricsStatusRow(status: lookup.lyricsStatus)
+        }
+
         if let song = part.librarySong, song.hasLyrics {
             NavigationLink {
-                PartLyricsPage(song: song)
+                SongDetailPage(song: song)
             } label: {
-                PLabel("Lyrics in library", icon: .textAlignLeft, size: 18)
+                PLabel("Lyrics in your songs", icon: .textAlignLeft, size: 18)
                     .font(.selahBody)
                     .frame(minHeight: Theme.minTapTarget, alignment: .leading)
             }
             .accessibilityIdentifier("song-lyrics-\(index)")
+        }
+    }
+
+    /// The user picked a Hymnary suggestion: the part takes its title, the song library gets (or finds) the song, and
+    /// the lyrics are fetched into it when it has none. Lyrics that were already there are never replaced.
+    private func pickHymnary(_ result: HymnarySearchResult) {
+        let title = result.suggestedTitle
+        part.songType = .hymn
+        part.title = title
+        lookup.didPick(title: title)
+        focus.wrappedValue = nil
+        let song = SongLibrary.link(part, in: modelContext)
+        if let song, song.hasLyrics {
+            if (song.externalID ?? "").isEmpty { song.externalID = result.textAuthNumber }
+            lookup.markAlreadyHaveLyrics()
+            return
+        }
+        Task {
+            guard let lyrics = await lookup.fetchLyrics(for: result), let song else { return }
+            SongLibrary.applyImport(lyrics, externalID: result.textAuthNumber, to: song)
         }
     }
 
@@ -783,56 +819,6 @@ private struct ServiceSongFields: View {
         let number = song.songType == .hymn ? song.hymnNumber.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         let kind = number.isEmpty ? type : "\(type) \(number)"
         return "\(kind) \u{00B7} in your songs"
-    }
-}
-
-/// Read-only lyrics of a library song: numbered verses with the refrain after the first one.
-private struct PartLyricsPage: View {
-    let song: LibrarySong
-
-    private var verses: [String] {
-        song.lyricVerses.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-
-    private var refrain: String {
-        song.refrain.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var body: some View {
-        List {
-            ForEach(Array(verses.enumerated()), id: \.offset) { index, verse in
-                Section {
-                    Text(verse)
-                        .font(.selahVerse)
-                        .padding(.vertical, Theme.Spacing.xxs)
-                } header: {
-                    Text("Verse \(index + 1)")
-                        .textCase(nil)
-                }
-                if index == 0 && !refrain.isEmpty {
-                    refrainSection
-                }
-            }
-            if verses.isEmpty && !refrain.isEmpty {
-                refrainSection
-            }
-        }
-        .listStyle(.insetGrouped)
-        .navigationTitle(song.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .hidesPlusButton()
-    }
-
-    private var refrainSection: some View {
-        Section {
-            Text(refrain)
-                .font(.selahVerse)
-                .italic()
-                .padding(.vertical, Theme.Spacing.xxs)
-        } header: {
-            Text("Refrain")
-                .textCase(nil)
-        }
     }
 }
 

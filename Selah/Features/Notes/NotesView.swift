@@ -11,6 +11,7 @@ struct NotesView: View {
     @Query private var entries: [StudyEntry]
     @Query private var services: [Service]
     @Query private var personalNotes: [PersonalNote]
+    @Query private var profiles: [UserProfile]
 
     @State private var query = ""
     @State private var kind: NoteKind?
@@ -21,6 +22,11 @@ struct NotesView: View {
     @State private var noteToDelete: PersonalNote?
 
 
+
+    private struct NotesVerseResult {
+        let reference: BibleReference
+        let text: String
+    }
 
     private enum NotesCover: Identifiable {
         case study(StudyEntry, ReadingPlan)
@@ -46,11 +52,27 @@ struct NotesView: View {
         sort.apply(NotesIndex.filter(allItems, kind: kind, query: query))
     }
 
+    private var translation: Translation { profiles.first?.translation ?? .kjv }
+
+    /// Typing a Bible reference ("Phil 4:6") shows the verse text above the matching notes.
+    private var verseResult: NotesVerseResult? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let reference = ReferenceParser().parse(trimmed) else { return nil }
+        let text = BibleStore.shared.text(for: reference, translation: translation)
+        guard !text.isEmpty else { return nil }
+        return NotesVerseResult(reference: reference, text: text)
+    }
+
     // MARK: Body
 
     var body: some View {
         NavigationStack {
             listPage
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .automatic),
+                prompt: "Search notes and verses"
+            )
             .background { AppBackground() }
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
@@ -116,6 +138,7 @@ struct NotesView: View {
 
     private var listPage: some View {
         let items = visibleItems
+        let verse = verseResult
         return List {
             headerRow(count: items.count)
                 .listRowInsets(EdgeInsets(top: 0, leading: Theme.Spacing.m, bottom: 0, trailing: Theme.Spacing.m))
@@ -127,11 +150,20 @@ struct NotesView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
 
-            if items.isEmpty {
-                emptyState
-                    .padding(.top, Theme.Spacing.xl)
+            if let verse {
+                verseRow(verse)
+                    .listRowInsets(EdgeInsets(top: 6, leading: Theme.Spacing.m, bottom: 6, trailing: Theme.Spacing.m))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+            }
+
+            if items.isEmpty {
+                if verse == nil {
+                    emptyState
+                        .padding(.top, Theme.Spacing.xl)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
             } else {
                 ForEach(items) { listRow(for: $0) }
             }
@@ -139,6 +171,34 @@ struct NotesView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
+    }
+
+    /// The verse a reference in the search box points to, with a Share button.
+    private func verseRow(_ verse: NotesVerseResult) -> some View {
+        let title = "\(verse.reference.displayString) (\(translation.shortName))"
+        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(title)
+                .font(.selahHeadline)
+            Text(verse.text)
+                .font(.selahBody)
+                .foregroundStyle(.primary.opacity(0.85))
+                .lineLimit(verse.reference.verseStart == nil ? 8 : nil)
+                .multilineTextAlignment(.leading)
+            ShareLink(item: "\(verse.text)
+\(title)") {
+                Label {
+                    Text("Share")
+                } icon: {
+                    Image(picon: .shareNetwork)
+                }
+            }
+            .buttonStyle(.borderless)
+            .frame(minHeight: Theme.minTapTarget)
+        }
+        .padding(Theme.Spacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityElement(children: .contain)
     }
 
     /// "12 notes" in the accent colour, and a sort menu on the right.

@@ -208,6 +208,56 @@ enum SongLibrary {
         song.lastSungAt = linked.compactMap { $0.service?.date }.max()
     }
 
+    /// Brings Hymnary lyrics into a library song. The hymnary id is always remembered; the verses and refrain are
+    /// only written when the song has no lyrics yet, so lyrics the user typed are never replaced.
+    /// Returns true when lyrics were written.
+    @discardableResult
+    static func applyImport(_ lyrics: SongsHymnLyrics, externalID: String, to song: LibrarySong) -> Bool {
+        if (song.externalID ?? "").isEmpty { song.externalID = externalID }
+        guard !song.hasLyrics else { return false }
+        song.lyricVerses = lyrics.verses
+        song.refrain = lyrics.refrain ?? ""
+        song.source = .imported
+        return true
+    }
+
+    /// After a song's title, type or hymn number is edited in the Songs tab, the service songs linked to it follow,
+    /// so the next time a service page links them they still match this library song instead of splitting off.
+    static func propagateIdentity(of song: LibrarySong) {
+        for part in song.parts {
+            if part.title != song.title { part.title = song.title }
+            if part.songType != song.songType { part.songType = song.songType }
+            if song.songType == .hymn, part.hymnNumber != song.hymnNumber { part.hymnNumber = song.hymnNumber }
+        }
+    }
+
+    /// The distinct services a song was logged in.
+    static func serviceCount(of song: LibrarySong) -> Int {
+        Set(song.parts.compactMap { $0.service?.persistentModelID }).count
+    }
+
+    /// The services a song was logged in, newest first.
+    static func services(of song: LibrarySong) -> [Service] {
+        var seen = Set<PersistentIdentifier>()
+        var result: [Service] = []
+        for part in song.parts {
+            guard let service = part.service, seen.insert(service.persistentModelID).inserted else { continue }
+            result.append(service)
+        }
+        return result.sorted { $0.date > $1.date }
+    }
+
+    /// Deletes a song when it is in no service. Returns the decision so the caller can explain a refusal.
+    @discardableResult
+    static func deleteIfUnused(_ song: LibrarySong, in context: ModelContext) -> SongsDeleteDecision {
+        let decision = SongsLogic.deleteDecision(serviceCount: serviceCount(of: song))
+        if decision == .allowed {
+            context.delete(song)
+            try? context.save()
+        }
+        return decision
+    }
+
     /// A logged hymn learns its number from the first service that records one.
     private static func fillMissing(_ song: LibrarySong, from part: ServicePart) {
         let number = part.hymnNumber.trimmingCharacters(in: .whitespacesAndNewlines)

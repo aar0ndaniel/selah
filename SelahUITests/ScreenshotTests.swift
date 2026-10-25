@@ -93,20 +93,26 @@ final class ScreenshotTests: XCTestCase {
     }
 
     @MainActor
-    func test10SearchLight() {
+    func test10SongsLight() {
         let app = launchApp()
-        openTab(app, .search)
-        // The search tab puts the field at the bottom; tap it and type a reference if it can be found.
-        let field = firstExisting([
-            app.searchFields.firstMatch,
-            app.textFields["Search notes, services and verses"]
-        ], timeout: 5)
-        if let field {
-            field.tap()
-            field.typeText("Phil 4:6")
-            settle(2)
-        }
-        snap(app, "10-search-light")
+        openTab(app, .songs)
+        snap(app, "10-songs-light")
+    }
+
+    /// Opens the first song that has lyrics, then its practice view.
+    @MainActor
+    func test13SongLyricsLight() {
+        let app = launchApp()
+        openTab(app, .songs)
+        let row = app.descendants(matching: .any).matching(identifier: "song-row-lyrics").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "No song with lyrics on the Songs tab")
+        row.tap()
+        settle(2)
+        let practise = app.descendants(matching: .any).matching(identifier: "song-practise").firstMatch
+        XCTAssertTrue(practise.waitForExistence(timeout: 10), "No Practise button on the song page")
+        practise.tap()
+        settle(2)
+        snap(app, "13-song-lyrics-light")
     }
 
     // MARK: - Helpers
@@ -116,7 +122,7 @@ final class ScreenshotTests: XCTestCase {
     private static let darkArgument = "-uiTestDark"
 
     private enum Tab {
-        case today, study, services, notes, search
+        case today, study, services, notes, songs
 
         var title: String {
             switch self {
@@ -124,7 +130,7 @@ final class ScreenshotTests: XCTestCase {
             case .study: return "Study"
             case .services: return "Services"
             case .notes: return "Notes"
-            case .search: return "Search"
+            case .songs: return "Songs"
             }
         }
 
@@ -134,7 +140,7 @@ final class ScreenshotTests: XCTestCase {
             case .study: return "tab-study"
             case .services: return "tab-services"
             case .notes: return "tab-notes"
-            case .search: return "tab-search"
+            case .songs: return "tab-songs"
             }
         }
     }
