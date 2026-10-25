@@ -15,6 +15,8 @@ struct Backup: Codable, Sendable, Equatable {
     var plans: [PlanDTO]
     var services: [ServiceDTO]
     var personalNotes: [PersonalNoteDTO]
+    /// The song library. Added with service parts; optional so older backups still decode.
+    var librarySongs: [LibrarySongDTO]? = nil
 
     struct ProfileDTO: Codable, Sendable, Equatable {
         var name: String
@@ -103,6 +105,37 @@ struct Backup: Codable, Sendable, Equatable {
         var songs: [SongDTO]
         var verses: [VerseDTO]
         var comments: [CommentDTO]
+        /// Added with service parts. Optional, so older backups still decode (they are migrated on restore).
+        var parts: [ServicePartDTO]? = nil
+        var partsMigrated: Bool? = nil
+    }
+
+    struct ServicePartDTO: Codable, Sendable, Equatable {
+        var kind: ServicePartKind
+        var order: Int
+        var title: String
+        var person: String
+        var notesData: Data
+        var isFavourite: Bool
+        var createdAt: Date
+        var songType: SongType
+        var hymnNumber: String
+        var verses: [VerseDTO]
+        var comments: [CommentDTO]
+        /// Index into `Backup.librarySongs`.
+        var librarySongIndex: Int?
+    }
+
+    struct LibrarySongDTO: Codable, Sendable, Equatable {
+        var title: String
+        var songType: SongType
+        var hymnNumber: String
+        var lyricVerses: [String]
+        var refrain: String
+        var source: LibrarySongSource
+        var externalID: String?
+        var createdAt: Date
+        var lastSungAt: Date?
     }
 
     struct PersonalNoteDTO: Codable, Sendable, Equatable {
@@ -165,6 +198,15 @@ enum BackupService {
         let plans = try context.fetch(FetchDescriptor<ReadingPlan>())
         let services = try context.fetch(FetchDescriptor<Service>())
         let notes = try context.fetch(FetchDescriptor<PersonalNote>())
+        let library = try context.fetch(FetchDescriptor<LibrarySong>())
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.title < rhs.title
+            }
+        var libraryIndex: [PersistentIdentifier: Int] = [:]
+        for (index, song) in library.enumerated() {
+            libraryIndex[song.persistentModelID] = index
+        }
 
         return Backup(
             version: Backup.currentVersion,
@@ -174,8 +216,9 @@ enum BackupService {
                 .sorted { ($0.weekday, $0.hour, $0.minute) < ($1.weekday, $1.hour, $1.minute) }
                 .map(meetingDayDTO),
             plans: plans.sorted { $0.bookName < $1.bookName }.map(planDTO),
-            services: services.sorted { $0.date < $1.date }.map(serviceDTO),
-            personalNotes: notes.sorted { $0.updatedAt < $1.updatedAt }.map(noteDTO)
+            services: services.sorted { $0.date < $1.date }.map { serviceDTO($0, libraryIndex: libraryIndex) },
+            personalNotes: notes.sorted { $0.updatedAt < $1.updatedAt }.map(noteDTO),
+            librarySongs: library.map(librarySongDTO)
         )
     }
 
@@ -246,6 +289,7 @@ enum BackupService {
         do {
             try deleteEverything(in: context)
             let counts = insert(backup, into: context)
+            ServicePartMigration.migrateAll(in: context)
             try context.save()
             return counts
         } catch {
@@ -266,6 +310,8 @@ enum BackupService {
         try deleteAll(VerseRef.self, in: context)
         try deleteAll(NoteComment.self, in: context)
         try deleteAll(Song.self, in: context)
+        try deleteAll(ServicePart.self, in: context)
+        try deleteAll(LibrarySong.self, in: context)
         try context.save()
     }
 
@@ -348,6 +394,23 @@ enum BackupService {
             }
         }
 
+        var library: [LibrarySong] = []
+        for dto in backup.librarySongs ?? [] {
+            let song = LibrarySong(
+                title: dto.title,
+                songType: dto.songType,
+                hymnNumber: dto.hymnNumber,
+                lyricVerses: dto.lyricVerses,
+                refrain: dto.refrain,
+                source: dto.source,
+                externalID: dto.externalID,
+                createdAt: dto.createdAt,
+                lastSungAt: dto.lastSungAt
+            )
+            context.insert(song)
+            library.append(song)
+        }
+
         for dto in backup.services {
             let service = Service(
                 date: dto.date,
@@ -379,6 +442,36 @@ enum BackupService {
                 context.insert(comment)
                 service.comments.append(comment)
             }
+            for partDTO in dto.parts ?? [] {
+                let part = ServicePart(
+                    kind: partDTO.kind,
+                    order: partDTO.order,
+                    title: partDTO.title,
+                    person: partDTO.person,
+                    isFavourite: partDTO.isFavourite,
+                    songType: partDTO.songType,
+                    hymnNumber: partDTO.hymnNumber,
+                    createdAt: partDTO.createdAt
+                )
+                part.notesData = partDTO.notesData
+                context.insert(part)
+                service.parts.append(part)
+                for verseDTO in partDTO.verses {
+                    let verse = makeVerse(verseDTO)
+                    context.insert(verse)
+                    part.verses.append(verse)
+                }
+                for commentDTO in partDTO.comments {
+                    let comment = makeComment(commentDTO)
+                    context.insert(comment)
+                    part.comments.append(comment)
+                }
+                if let index = partDTO.librarySongIndex, library.indices.contains(index) {
+                    part.librarySong = library[index]
+                }
+            }
+            // Older backups have no parts: `restore` then runs the migration, which builds them from the old fields.
+            service.partsMigrated = dto.partsMigrated ?? false
         }
 
         for dto in backup.personalNotes {
@@ -501,7 +594,7 @@ enum BackupService {
         )
     }
 
-    private static func serviceDTO(_ service: Service) -> Backup.ServiceDTO {
+    private static func serviceDTO(_ service: Service, libraryIndex: [PersistentIdentifier: Int]) -> Backup.ServiceDTO {
         Backup.ServiceDTO(
             date: service.date,
             gatheringName: service.gatheringName,
@@ -516,7 +609,40 @@ enum BackupService {
             songs: service.songs.sorted { $0.order < $1.order }
                 .map { Backup.SongDTO(hymnNumber: $0.hymnNumber, title: $0.title, order: $0.order) },
             verses: service.verses.map(verseDTO),
-            comments: service.comments.sorted { $0.createdAt < $1.createdAt }.map(commentDTO)
+            comments: service.comments.sorted { $0.createdAt < $1.createdAt }.map(commentDTO),
+            parts: service.orderedParts.map { partDTO($0, libraryIndex: libraryIndex) },
+            partsMigrated: service.partsMigrated
+        )
+    }
+
+    private static func partDTO(_ part: ServicePart, libraryIndex: [PersistentIdentifier: Int]) -> Backup.ServicePartDTO {
+        Backup.ServicePartDTO(
+            kind: part.kind,
+            order: part.order,
+            title: part.title,
+            person: part.person,
+            notesData: part.notesData,
+            isFavourite: part.isFavourite,
+            createdAt: part.createdAt,
+            songType: part.songType,
+            hymnNumber: part.hymnNumber,
+            verses: part.verses.map(verseDTO),
+            comments: part.comments.sorted { $0.createdAt < $1.createdAt }.map(commentDTO),
+            librarySongIndex: part.librarySong.flatMap { libraryIndex[$0.persistentModelID] }
+        )
+    }
+
+    private static func librarySongDTO(_ song: LibrarySong) -> Backup.LibrarySongDTO {
+        Backup.LibrarySongDTO(
+            title: song.title,
+            songType: song.songType,
+            hymnNumber: song.hymnNumber,
+            lyricVerses: song.lyricVerses,
+            refrain: song.refrain,
+            source: song.source,
+            externalID: song.externalID,
+            createdAt: song.createdAt,
+            lastSungAt: song.lastSungAt
         )
     }
 

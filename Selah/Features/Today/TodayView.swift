@@ -117,7 +117,6 @@ struct TodayView: View {
                     )
                     verseCard
                     readingSection(now: now)
-                    habitWeekSection(now: now, input: input)
                     gatheringSection(now: now)
                     readingHeatmap(now: now)
                     recentNotesSection
@@ -527,14 +526,7 @@ struct TodayView: View {
         }
     }
 
-    // MARK: Habits and heatmap
-
-    private func habitWeekSection(now: Date, input: StreakInput) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionTitle("Your week")
-            HabitWeekSection(input: input, today: now)
-        }
-    }
+    // MARK: Heatmap
 
     private func readingHeatmap(now: Date) -> some View {
         ActivityHeatmapCard(

@@ -12,6 +12,8 @@ enum SampleData {
         StudyEntry.self,
         Service.self,
         Song.self,
+        ServicePart.self,
+        LibrarySong.self,
         PersonalNote.self,
         VerseRef.self,
         NoteComment.self
@@ -174,103 +176,76 @@ enum SampleData {
             chaptersRead: [1, 2, 3, 4]
         ))
 
-        // Services across September and October 2026
-        let s1 = Service(
-            date: date(2026, 9, 20, 9, 0),
-            gatheringName: "Sunday worship",
-            sermonTitle: "Trusting God in the waiting",
-            sermonist: "Pastor Mensah",
-            sermonNote: AttributedString("Waiting is not wasted time. God is working while we wait."),
-            sermonFavourite: true
-        )
-        context.insert(s1)
-        let s1v = verse("Proverbs", 3, 5, 6,
-            "Trust in the Lord with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
-            part: .sermon)
-        context.insert(s1v)
-        s1v.service = s1
-        addSongs(to: s1, context: context, songs: [("12", "Great is thy faithfulness"), ("245", "Blessed assurance")])
+        // Song library (public-domain lyrics only)
+        let library = seedLibrary(context)
 
-        let s2 = Service(
-            date: date(2026, 9, 22, 18, 30),
-            gatheringName: "Bible study",
-            classLesson: "The fruit of the Spirit",
-            classTeacher: "Elder Boateng",
-            classNote: AttributedString("Fruit grows over time. It is the Spirit's work in us, not our effort alone."),
-            classFavourite: true
-        )
-        context.insert(s2)
-        let s2v = verse("Romans", 8, 28, 28,
-            "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
-            part: .bibleClass)
-        context.insert(s2v)
-        s2v.service = s2
-        addSongs(to: s2, context: context, songs: [("78", "Holy Spirit, light divine")])
+        // Services across September and October 2026, recorded as parts in the order they happened
+        let s1 = newService(context, date(2026, 9, 20, 9, 0), "Sunday worship")
+        addSong(to: s1, context, .hymn, "12", "Great is thy faithfulness", library)
+        addTalk(.sermon, to: s1, context,
+                title: "Trusting God in the waiting", person: "Pastor Mensah",
+                note: "Waiting is not wasted time. God is working while we wait.", favourite: true,
+                verses: [verse("Proverbs", 3, 5, 6,
+                    "Trust in the Lord with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.",
+                    part: .sermon)])
+        addSong(to: s1, context, .hymn, "245", "Blessed assurance", library)
 
-        let s3 = Service(
-            date: date(2026, 9, 27, 9, 0),
-            gatheringName: "Sunday worship",
-            sermonTitle: "Fear not",
-            sermonist: "Pastor Mensah",
-            sermonNote: AttributedString("God says fear not because he is with us. His presence answers every fear."),
-            classLesson: "Prayer that changes us",
-            classTeacher: "Sister Adjei",
-            classNote: AttributedString("Prayer shapes the one who prays.")
-        )
-        context.insert(s3)
-        let s3v = verse("Isaiah", 41, 10, 10,
-            "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.",
-            part: .sermon)
-        context.insert(s3v)
-        s3v.service = s3
-        addSongs(to: s3, context: context, songs: [("12", "Great is thy faithfulness"), ("301", "It is well with my soul"), ("56", "How firm a foundation")])
+        let s2 = newService(context, date(2026, 9, 22, 18, 30), "Bible study")
+        addSong(to: s2, context, .hymn, "78", "Holy Spirit, light divine", library)
+        addTalk(.bibleClass, to: s2, context,
+                title: "The fruit of the Spirit", person: "Elder Boateng",
+                note: "Fruit grows over time. It is the Spirit's work in us, not our effort alone.", favourite: true,
+                verses: [verse("Romans", 8, 28, 28,
+                    "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
+                    part: .bibleClass)])
 
-        let s4 = Service(
-            date: date(2026, 10, 4, 9, 0),
-            gatheringName: "Sunday worship",
-            sermonTitle: "Seek first the kingdom",
-            sermonist: "Pastor Owusu",
-            sermonNote: AttributedString("Priorities decide what we worry about. Seek him first and the rest follows."),
-            sermonFavourite: true,
-            classLesson: "Faith that acts",
-            classTeacher: "Elder Boateng",
-            classNote: AttributedString("Faith is trusting what we cannot see, then acting on it.")
-        )
-        context.insert(s4)
-        let s4a = verse("Matthew", 6, 33, 33,
-            "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.",
-            part: .sermon)
-        let s4b = verse("Hebrews", 11, 1, 1,
-            "Now faith is the substance of things hoped for, the evidence of things not seen.",
-            part: .bibleClass)
-        context.insert(s4a)
-        context.insert(s4b)
-        s4a.service = s4
-        s4b.service = s4
-        addSongs(to: s4, context: context, songs: [("245", "Blessed assurance"), ("56", "How firm a foundation")])
+        let s3 = newService(context, date(2026, 9, 27, 9, 0), "Sunday worship")
+        addSong(to: s3, context, .chorus, "", "This is the day", library)
+        addTalk(.bibleClass, to: s3, context,
+                title: "Prayer that changes us", person: "Sister Adjei",
+                note: "Prayer shapes the one who prays.")
+        addSong(to: s3, context, .hymn, "12", "Great is thy faithfulness", library)
+        addTalk(.sermon, to: s3, context,
+                title: "Fear not", person: "Pastor Mensah",
+                note: "God says fear not because he is with us. His presence answers every fear.",
+                verses: [verse("Isaiah", 41, 10, 10,
+                    "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.",
+                    part: .sermon)])
+        addSong(to: s3, context, .hymn, "301", "It is well with my soul", library)
+        addSong(to: s3, context, .hymn, "56", "How firm a foundation", library)
 
-        let s5 = Service(
-            date: date(2026, 10, 11, 9, 0),
-            gatheringName: "Sunday worship",
-            sermonTitle: "New every morning",
-            sermonist: "Pastor Mensah",
-            sermonNote: AttributedString("Mercy does not run out. Each day starts with a fresh supply."),
-            classLesson: "Confession and cleansing",
-            classTeacher: "Sister Adjei",
-            classNote: AttributedString("Confessing is agreeing with God. He forgives and cleans.")
-        )
-        context.insert(s5)
-        let s5a = verse("Lamentations", 3, 22, 23,
-            "It is of the Lord’s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.",
-            part: .sermon)
-        let s5b = verse("1 John", 1, 9, 9,
-            "If we confess our sins, he is faithful and just to forgive us our sins, and to cleanse us from all unrighteousness.",
-            part: .bibleClass)
-        context.insert(s5a)
-        context.insert(s5b)
-        s5a.service = s5
-        s5b.service = s5
-        addSongs(to: s5, context: context, songs: [("12", "Great is thy faithfulness"), ("301", "It is well with my soul")])
+        let s4 = newService(context, date(2026, 10, 4, 9, 0), "Sunday worship")
+        addSong(to: s4, context, .worship, "", "Alpha and Omega", library)
+        addTalk(.bibleClass, to: s4, context,
+                title: "Faith that acts", person: "Elder Boateng",
+                note: "Faith is trusting what we cannot see, then acting on it.",
+                verses: [verse("Hebrews", 11, 1, 1,
+                    "Now faith is the substance of things hoped for, the evidence of things not seen.",
+                    part: .bibleClass)])
+        addSong(to: s4, context, .hymn, "245", "Blessed assurance", library)
+        addTalk(.sermon, to: s4, context,
+                title: "Seek first the kingdom", person: "Pastor Owusu",
+                note: "Priorities decide what we worry about. Seek him first and the rest follows.", favourite: true,
+                verses: [verse("Matthew", 6, 33, 33,
+                    "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.",
+                    part: .sermon)])
+        addSong(to: s4, context, .hymn, "56", "How firm a foundation", library)
+
+        let s5 = newService(context, date(2026, 10, 11, 9, 0), "Sunday worship")
+        addSong(to: s5, context, .hymn, "12", "Great is thy faithfulness", library)
+        addTalk(.bibleClass, to: s5, context,
+                title: "Confession and cleansing", person: "Sister Adjei",
+                note: "Confessing is agreeing with God. He forgives and cleans.",
+                verses: [verse("1 John", 1, 9, 9,
+                    "If we confess our sins, he is faithful and just to forgive us our sins, and to cleanse us from all unrighteousness.",
+                    part: .bibleClass)])
+        addTalk(.sermon, to: s5, context,
+                title: "New every morning", person: "Pastor Mensah",
+                note: "Mercy does not run out. Each day starts with a fresh supply.",
+                verses: [verse("Lamentations", 3, 22, 23,
+                    "It is of the Lord’s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.",
+                    part: .sermon)])
+        addSong(to: s5, context, .hymn, "301", "It is well with my soul", library)
 
         // Personal notes
         let n1 = PersonalNote(
@@ -314,11 +289,101 @@ enum SampleData {
         try? context.save()
     }
 
-    private static func addSongs(to service: Service, context: ModelContext, songs: [(String, String)]) {
-        for (index, item) in songs.enumerated() {
-            let song = Song(hymnNumber: item.0, title: item.1, order: index)
-            context.insert(song)
-            song.service = service
+    // MARK: - Service helpers
+
+    private static func newService(_ context: ModelContext, _ date: Date, _ gathering: String) -> Service {
+        let service = Service(date: date, gatheringName: gathering)
+        service.partsMigrated = true
+        context.insert(service)
+        return service
+    }
+
+    private static func addTalk(
+        _ kind: ServicePartKind,
+        to service: Service,
+        _ context: ModelContext,
+        title: String,
+        person: String,
+        note: String,
+        favourite: Bool = false,
+        verses: [VerseRef] = []
+    ) {
+        let part = ServicePart(
+            kind: kind,
+            order: service.nextPartOrder,
+            title: title,
+            person: person,
+            notes: AttributedString(note),
+            isFavourite: favourite
+        )
+        context.insert(part)
+        part.service = service
+        for verse in verses {
+            context.insert(verse)
+            verse.servicePart = part
         }
+    }
+
+    private static func addSong(
+        to service: Service,
+        _ context: ModelContext,
+        _ type: SongType,
+        _ number: String,
+        _ title: String,
+        _ library: [String: LibrarySong]
+    ) {
+        let part = ServicePart(kind: .song, order: service.nextPartOrder, title: title, songType: type, hymnNumber: number)
+        context.insert(part)
+        part.service = service
+        if let song = library[title] {
+            part.librarySong = song
+            if song.lastSungAt.map({ $0 < service.date }) ?? true { song.lastSungAt = service.date }
+        }
+    }
+
+    /// Library songs keyed by title. "Blessed assurance" (Fanny Crosby, 1873) and "Amazing grace" (John Newton, 1779)
+    /// carry public-domain lyrics so the Songs screens have something to show.
+    private static func seedLibrary(_ context: ModelContext) -> [String: LibrarySong] {
+        let logged: [(SongType, String, String)] = [
+            (.hymn, "12", "Great is thy faithfulness"),
+            (.hymn, "78", "Holy Spirit, light divine"),
+            (.hymn, "301", "It is well with my soul"),
+            (.hymn, "56", "How firm a foundation"),
+            (.chorus, "", "This is the day"),
+            (.worship, "", "Alpha and Omega")
+        ]
+        var result: [String: LibrarySong] = [:]
+        for (type, number, title) in logged {
+            let song = LibrarySong(title: title, songType: type, hymnNumber: number, source: .logged)
+            context.insert(song)
+            result[title] = song
+        }
+
+        let blessed = LibrarySong(
+            title: "Blessed assurance",
+            songType: .hymn,
+            hymnNumber: "245",
+            lyricVerses: [
+                "Blessed assurance, Jesus is mine!\nO what a foretaste of glory divine!\nHeir of salvation, purchase of God,\nBorn of his Spirit, washed in his blood.",
+                "Perfect submission, perfect delight,\nVisions of rapture now burst on my sight;\nAngels descending bring from above\nEchoes of mercy, whispers of love."
+            ],
+            refrain: "This is my story, this is my song,\nPraising my Saviour all the day long;\nThis is my story, this is my song,\nPraising my Saviour all the day long.",
+            source: .logged
+        )
+        context.insert(blessed)
+        result[blessed.title] = blessed
+
+        let amazing = LibrarySong(
+            title: "Amazing grace",
+            songType: .hymn,
+            lyricVerses: [
+                "Amazing grace! how sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found,\nWas blind, but now I see.",
+                "'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;\nHow precious did that grace appear\nThe hour I first believed!"
+            ],
+            source: .added
+        )
+        context.insert(amazing)
+        result[amazing.title] = amazing
+        return result
     }
 }

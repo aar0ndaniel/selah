@@ -39,6 +39,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: Selah-iOS-IPA
+          retention-days: 3
           path: .build/Selah.ipa
           if-no-files-found: error
       # Cheap check on every push (~1 min): compile app + tests for the simulator, no boot.
@@ -85,6 +86,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-results
+          retention-days: 2
           path: .build/SelahTests.xcresult
           if-no-files-found: ignore
       # Screenshots (~4 min): only when the commit message has [shots] or on manual runs.
@@ -129,6 +131,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: screenshots
+          retention-days: 3
           path: .build/Screenshots
           if-no-files-found: ignore
       - name: Save screenshot results
@@ -136,5 +139,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: shots-results
+          retention-days: 2
           path: .build/Shots.xcresult
           if-no-files-found: ignore

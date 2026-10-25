@@ -159,18 +159,28 @@ extension NoteItem {
 
     @MainActor
     init(service: Service) {
+        let parts = service.orderedParts
+        let headline = ServicesLogic.headline(parts: parts.map { $0.summary })
         let title: String
-        if !service.sermonTitle.isEmpty {
-            title = service.sermonTitle
+        if let headline {
+            title = headline.title
         } else if !service.gatheringName.isEmpty {
             title = service.gatheringName
         } else {
             title = "Service"
         }
-        var snippet = [NoteItem.plainText(service.sermonNote), NoteItem.plainText(service.classNote)]
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-        if snippet.isEmpty, !service.sermonist.isEmpty { snippet = "Taught by \(service.sermonist)" }
+        var snippet = NoteItem.collapse(
+            parts.filter { $0.hasNotes }
+                .map { NoteItem.plainText($0.notes) }
+                .joined(separator: " ")
+        )
+        if snippet.isEmpty, let person = parts.first(where: {
+            $0.kind != .song && !$0.person.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        })?.person {
+            snippet = "Taught by \(person)"
+        }
+        let songs = parts.filter { $0.kind == .song }.map { $0.summary.displayTitle }.filter { !$0.isEmpty }
+        if snippet.isEmpty, !songs.isEmpty { snippet = songs.joined(separator: ", ") }
         self.init(
             id: NoteItem.makeID(.service, service),
             kind: .service,
@@ -179,7 +189,7 @@ extension NoteItem {
             date: service.date,
             colour: .sky,
             pinned: false,
-            verseRefs: service.verses.map { $0.reference }
+            verseRefs: parts.flatMap { $0.verses.map { $0.reference } } + service.verses.map { $0.reference }
         )
     }
 

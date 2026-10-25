@@ -12,6 +12,7 @@ struct VersePicker: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
 
     init(translation: Translation, embedded: Bool = false, onPick: @escaping (VerseRef) -> Void) {
         self.translation = translation
@@ -56,8 +57,18 @@ struct VersePicker: View {
         content
             .navigationTitle("Add a verse")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "John 3:16 or Psalm 23")
-            .bottomSearchToolbar()
+            // Search sits at the top: the bottom field was hidden behind the floating tab bar.
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "John 3:16 or Psalm 23"
+            )
+            .searchFocused($searchFocused)
+            .task {
+                // Let the push or sheet animation finish, then open the keyboard on the search field.
+                try? await Task.sleep(for: .milliseconds(450))
+                searchFocused = true
+            }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
     }

@@ -55,6 +55,8 @@ private struct AppRoot: View {
                     StudyEntry.self,
                     Service.self,
                     Song.self,
+                    ServicePart.self,
+                    LibrarySong.self,
                     PersonalNote.self,
                     VerseRef.self,
                     NoteComment.self

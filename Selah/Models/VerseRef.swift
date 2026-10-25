@@ -15,6 +15,8 @@ final class VerseRef {
     var studyEntry: StudyEntry?
     var service: Service?
     var personalNote: PersonalNote?
+    /// The sermon or Bible class part this verse belongs to (services recorded with parts).
+    var servicePart: ServicePart?
 
     init(
         book: String = "",

@@ -11,15 +11,27 @@ struct SongSnapshot: Sendable, Equatable {
     }
 }
 
+/// Plain value copy of one sermon or Bible class: its title (or lesson) and the person who gave it.
+struct TalkSnapshot: Sendable, Equatable {
+    var title: String
+    var person: String
+
+    init(title: String = "", person: String = "") {
+        self.title = title
+        self.person = person
+    }
+}
+
 /// Plain value copy of a service.
+///
+/// A service holds any number of sermons, Bible classes and songs (its parts). The single sermon/class init
+/// arguments are a shorthand for one of each, and are only counted when the title or person is filled in.
 struct ServiceSnapshot: Sendable, Equatable {
     var date: Date
     var gatheringName: String
-    var sermonTitle: String
-    var sermonist: String
-    var classLesson: String
-    var classTeacher: String
-    /// The `book` of every verse attached to the service (sermon and class).
+    var sermons: [TalkSnapshot]
+    var classes: [TalkSnapshot]
+    /// The `book` of every verse attached to the service (sermons and classes).
     var verseBooks: [String]
     var songs: [SongSnapshot]
 
@@ -30,23 +42,29 @@ struct ServiceSnapshot: Sendable, Equatable {
         sermonist: String = "",
         classLesson: String = "",
         classTeacher: String = "",
+        sermons: [TalkSnapshot] = [],
+        classes: [TalkSnapshot] = [],
         verseBooks: [String] = [],
         songs: [SongSnapshot] = []
     ) {
         self.date = date
         self.gatheringName = gatheringName
-        self.sermonTitle = sermonTitle
-        self.sermonist = sermonist
-        self.classLesson = classLesson
-        self.classTeacher = classTeacher
+        var allSermons: [TalkSnapshot] = []
+        if !sermonTitle.isBlank || !sermonist.isBlank {
+            allSermons.append(TalkSnapshot(title: sermonTitle, person: sermonist))
+        }
+        var allClasses: [TalkSnapshot] = []
+        if !classLesson.isBlank || !classTeacher.isBlank {
+            allClasses.append(TalkSnapshot(title: classLesson, person: classTeacher))
+        }
+        self.sermons = allSermons + sermons
+        self.classes = allClasses + classes
         self.verseBooks = verseBooks
         self.songs = songs
     }
 
-    /// A sermon was recorded when it has a title or a sermonist.
-    var hasSermon: Bool { !sermonTitle.isBlank || !sermonist.isBlank }
-    /// A Bible class was recorded when it has a lesson or a teacher.
-    var hasClass: Bool { !classLesson.isBlank || !classTeacher.isBlank }
+    var hasSermon: Bool { !sermons.isEmpty }
+    var hasClass: Bool { !classes.isEmpty }
 }
 
 /// Everything the Monthly segment shows for one month. Pure maths; unit tested.
@@ -105,17 +123,18 @@ struct MonthlySummary: Sendable, Equatable {
 
         serviceCount = inMonth.count
 
-        let sermonServices = inMonth.filter { $0.hasSermon }
-        sermonCount = sermonServices.count
-        sermons = sermonServices.map {
-            SermonItem(date: $0.date, title: $0.sermonTitle.trimmed, sermonist: $0.sermonist.trimmed)
+        // Every sermon and class counts, so a service with two sermons adds two.
+        let sermonItems = inMonth.flatMap { service in
+            service.sermons.map { SermonItem(date: service.date, title: $0.title.trimmed, sermonist: $0.person.trimmed) }
         }
+        sermons = sermonItems
+        sermonCount = sermonItems.count
 
-        let classServices = inMonth.filter { $0.hasClass }
-        classCount = classServices.count
-        classes = classServices.map {
-            ClassItem(date: $0.date, lesson: $0.classLesson.trimmed, teacher: $0.classTeacher.trimmed)
+        let classItems = inMonth.flatMap { service in
+            service.classes.map { ClassItem(date: service.date, lesson: $0.title.trimmed, teacher: $0.person.trimmed) }
         }
+        classes = classItems
+        classCount = classItems.count
 
         // Books quoted: one count per attached verse, ranked high to low.
         // Ties keep Bible order (Genesis first); unknown names go last, A to Z.

@@ -1,7 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// One recorded service as a full page: sermon, Bible class and songs.
+/// One recorded service as a full page: its parts (sermons, Bible classes, songs) in the order they happened.
+///
+/// A new service starts empty with three add buttons. Each part is its own inset grouped section with a native
+/// DisclosureGroup row: sermons and Bible classes hold a title, a person, verses and notes; songs hold a type
+/// (hymn, chorus, worship), a hymn number for hymns, and a title that links to the song library.
 ///
 /// Pushed in the Services `NavigationStack` (no stack of its own, no sheet). Anything that still wants to present
 /// a service in a sheet (Today, Notes) uses `ServiceSheet`, which wraps this page in a stack.
@@ -9,38 +13,32 @@ struct ServicePage: View {
     @Bindable var service: Service
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var meetingDays: [MeetingDay]
     @Query private var profiles: [UserProfile]
+    @Query(sort: \LibrarySong.title) private var librarySongs: [LibrarySong]
 
-    @State private var pickerPart: VersePart?
+    /// The sermon or class whose "Add verse" opened the verse picker.
+    @State private var pickerPart: ServicePart?
     /// True while the gathering type is "Other" and the name is typed by hand.
     @State private var isOther = false
     @State private var didSetUp = false
     @State private var showDatePicker = false
-    @State private var sermonOpen: Bool
-    @State private var classOpen: Bool
-    @State private var songsOpen = true
+    /// Parts whose disclosure row is open.
+    @State private var expanded: Set<PersistentIdentifier>
+    @State private var isReordering = false
+    @State private var partToDelete: ServicePart?
+    @State private var favouriteTaps = 0
     @FocusState private var focus: ServiceField?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let otherTag = "__other__"
 
     init(service: Service) {
         self._service = Bindable(service)
-        let sermon = ServicesLogic.sectionHasContent(
-            texts: [service.sermonTitle, service.sermonist],
-            hasNote: !service.sermonNote.characters.isEmpty,
-            verseCount: service.verses.filter { $0.part == .sermon }.count
-        )
-        let bibleClass = ServicesLogic.sectionHasContent(
-            texts: [service.classLesson, service.classTeacher],
-            hasNote: !service.classNote.characters.isEmpty,
-            verseCount: service.verses.filter { $0.part == .bibleClass }.count
-        )
-        let start = ServicesLogic.initialExpansion(sermonHasContent: sermon, classHasContent: bibleClass)
-        self._sermonOpen = State(initialValue: start.sermon)
-        self._classOpen = State(initialValue: start.bibleClass)
+        let open = service.parts
+            .filter { ServicesLogic.partStartsExpanded(kind: $0.kind, hasContent: $0.hasContent) }
+            .map { $0.persistentModelID }
+        self._expanded = State(initialValue: Set(open))
     }
 
     private var translation: Translation { profiles.first?.translation ?? .kjv }
@@ -71,36 +69,42 @@ struct ServicePage: View {
         )
     }
 
-    private var gatheringTitle: String {
-        service.gatheringName.isEmpty ? "Service" : service.gatheringName
-    }
-
     private var dateText: String {
         service.date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
 
-    private var sortedSongs: [Song] { service.songs.sorted { $0.order < $1.order } }
-
-    private func verses(for part: VersePart) -> [VerseRef] {
-        service.verses.filter { $0.part == part }
-    }
-
     var body: some View {
+        let parts = service.orderedParts
         ScrollViewReader { proxy in
             List {
                 headerSection
-                sermonSection
-                classSection
-                songsSection(proxy: proxy)
+                if isReordering {
+                    reorderSection(parts)
+                } else {
+                    partSections(parts)
+                    addSection(proxy: proxy, isEmpty: parts.isEmpty)
+                }
             }
             .listStyle(.insetGrouped)
+            .environment(\.editMode, .constant(isReordering ? .active : .inactive))
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Service")
             .navigationBarTitleDisplayMode(.inline)
             .hidesPlusButton()
             .toolbar {
-                if sortedSongs.count > 1 {
-                    ToolbarItem(placement: .topBarTrailing) { EditButton() }
+                if parts.count > 1 || isReordering {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(isReordering ? "Done" : "Reorder") {
+                            focus = nil
+                            if reduceMotion {
+                                isReordering.toggle()
+                            } else {
+                                withAnimation { isReordering.toggle() }
+                            }
+                        }
+                        .accessibilityIdentifier("reorder-parts")
+                        .accessibilityHint(isReordering ? "Finishes reordering" : "Changes the order of the parts")
+                    }
                 }
                 // The number pad has no return key, so every field gets a way to close the keyboard.
                 // Always present: adding/removing it as focus changes rebuilt the keyboard bar mid-tap
@@ -118,13 +122,39 @@ struct ServicePage: View {
                 }
             }
             .sheet(isPresented: $showDatePicker) { datePickerSheet }
-            .sensoryFeedback(.impact(weight: .light), trigger: service.sermonFavourite)
-            .sensoryFeedback(.impact(weight: .light), trigger: service.classFavourite)
+            .alert(
+                deleteTitle,
+                isPresented: Binding(
+                    get: { partToDelete != nil },
+                    set: { if !$0 { partToDelete = nil } }
+                ),
+                presenting: partToDelete
+            ) { part in
+                Button("Delete", role: .destructive) {
+                    delete(part)
+                    partToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { partToDelete = nil }
+            } message: { part in
+                Text(part.kind == .song
+                     ? "It will be taken out of this service."
+                     : "Its notes and verses will be deleted too.")
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: favouriteTaps)
+            .onChange(of: focus) { old, _ in
+                linkSongIfNeeded(leaving: old)
+            }
             .onAppear {
                 guard !didSetUp else { return }
                 didSetUp = true
                 let name = service.gatheringName
                 isOther = !name.isEmpty && !gatheringNames.contains(name)
+            }
+            .onDisappear {
+                // A title still being typed when the page closes is linked too.
+                for part in service.parts where part.kind == .song {
+                    SongLibrary.link(part, in: modelContext)
+                }
             }
         }
     }
@@ -134,6 +164,15 @@ struct ServicePage: View {
             get: { pickerPart != nil },
             set: { if !$0 { pickerPart = nil } }
         )
+    }
+
+    private var deleteTitle: String {
+        guard let part = partToDelete else { return "Delete this part?" }
+        switch part.kind {
+        case .sermon: return "Delete this sermon?"
+        case .bibleClass: return "Delete this Bible class?"
+        case .song: return "Delete this song?"
+        }
     }
 
     // MARK: Header
@@ -168,7 +207,7 @@ struct ServicePage: View {
             .accessibilityHint("Changes the type of gathering")
 
             if isOther {
-                LabeledField(
+                ServiceLabeledField(
                     label: "Gathering name",
                     placeholder: "e.g. Midweek service",
                     text: $service.gatheringName,
@@ -199,275 +238,311 @@ struct ServicePage: View {
         .presentationDetents([.medium, .large])
     }
 
-    // MARK: Collapsible sections
+    // MARK: Parts
     //
-    // Section(isExpanded:) only collapses in a `.sidebar` list (Apple's Section docs), so each collapsible part is a
-    // native DisclosureGroup: the first row of an inset grouped section, with the content rows inside it.
-
-    private var sermonSection: some View {
-        Section {
-            DisclosureGroup(isExpanded: $sermonOpen) {
-                LabeledField(
-                    label: "Title",
-                    placeholder: "e.g. Grace that keeps",
-                    text: $service.sermonTitle,
-                    field: .sermonTitle,
-                    focus: $focus,
-                    axis: .vertical,
-                    identifier: "field-sermon-title"
-                )
-                LabeledField(
-                    label: "Sermonist",
-                    placeholder: "e.g. Pastor Mensah",
-                    text: $service.sermonist,
-                    field: .sermonist,
-                    focus: $focus,
-                    identifier: "field-sermonist"
-                )
-                verseRows(for: .sermon)
-                RichNoteEditor(
-                    text: $service.sermonNote,
-                    owner: .service(service),
-                    field: .sermon,
-                    placeholder: "Sermon message",
-                    embedded: true
-                )
-                .padding(.vertical, Theme.Spacing.xs)
-            } label: {
-                disclosureLabel(
-                    title: "Sermon",
-                    isExpanded: $sermonOpen,
-                    identifier: "section-sermon",
-                    favouriteIdentifier: "favourite-sermon",
-                    isFavourite: service.sermonFavourite,
-                    favouriteLabel: "Favourite sermon",
-                    toggleFavourite: { service.sermonFavourite.toggle() }
-                )
-            }
-        }
-    }
-
-    private var classSection: some View {
-        Section {
-            DisclosureGroup(isExpanded: $classOpen) {
-                LabeledField(
-                    label: "Lesson",
-                    placeholder: "e.g. Walking in the Spirit",
-                    text: $service.classLesson,
-                    field: .classLesson,
-                    focus: $focus,
-                    axis: .vertical,
-                    identifier: "field-class-lesson"
-                )
-                LabeledField(
-                    label: "Taught by",
-                    placeholder: "e.g. Deacon Owusu",
-                    text: $service.classTeacher,
-                    field: .classTeacher,
-                    focus: $focus,
-                    identifier: "field-class-teacher"
-                )
-                verseRows(for: .bibleClass)
-                RichNoteEditor(
-                    text: $service.classNote,
-                    owner: .service(service),
-                    field: .bibleClass,
-                    placeholder: "Class notes",
-                    embedded: true
-                )
-                .padding(.vertical, Theme.Spacing.xs)
-            } label: {
-                disclosureLabel(
-                    title: "Bible class",
-                    isExpanded: $classOpen,
-                    identifier: "section-class",
-                    favouriteIdentifier: "favourite-class",
-                    isFavourite: service.classFavourite,
-                    favouriteLabel: "Favourite Bible class",
-                    toggleFavourite: { service.classFavourite.toggle() }
-                )
-            }
-        }
-    }
-
-    /// Disclosure row title with an icon-only favourite star beside the system chevron.
-    private func disclosureLabel(
-        title: String,
-        isExpanded: Binding<Bool>,
-        identifier: String,
-        favouriteIdentifier: String,
-        isFavourite: Bool,
-        favouriteLabel: String,
-        toggleFavourite: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            toggleLabel(title: title, isExpanded: isExpanded, identifier: identifier)
-            Button(action: toggleFavourite) {
-                PIconView(.star, filled: isFavourite, size: 22)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier(favouriteIdentifier)
-            .accessibilityLabel(favouriteLabel)
-            .accessibilityValue(isFavourite ? "On" : "Off")
-            .accessibilityAddTraits(isFavourite ? .isSelected : [])
-        }
-    }
-
-    /// The title area of a disclosure row. It fills the row and toggles expansion itself, so tapping anywhere
-    /// except the star opens or closes the section (the system label tap alone proved unreliable).
-    private func toggleLabel(title: String, isExpanded: Binding<Bool>, identifier: String) -> some View {
-        Text(title)
-            .font(.selahCardTitle)
-            .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if reduceMotion {
-                    isExpanded.wrappedValue.toggle()
-                } else {
-                    withAnimation(.snappy) { isExpanded.wrappedValue.toggle() }
-                }
-            }
-            .accessibilityIdentifier(identifier)
-            .accessibilityAddTraits([.isHeader, .isButton])
-            .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
-            .accessibilityHint("Shows or hides this section")
-    }
-
-    // MARK: Verses
+    // Section(isExpanded:) only collapses in a `.sidebar` list (Apple's Section docs), so each part is a native
+    // DisclosureGroup: the first row of an inset grouped section, with the content rows inside it.
 
     @ViewBuilder
-    private func verseRows(for part: VersePart) -> some View {
-        ForEach(verses(for: part)) { verse in
-            verseRow(verse)
-        }
-        Button {
-            pickerPart = part
-        } label: {
-            PLabel("Add verse", icon: .plus, size: 18)
-                .frame(minHeight: Theme.minTapTarget, alignment: .leading)
-        }
-        .accessibilityHint("Finds a verse to attach")
-    }
-
-    private func verseRow(_ verse: VerseRef) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-            Text(verse.reference)
-                .font(.selahLabel.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-            if !verse.textSnapshot.isEmpty {
-                Text(verse.textSnapshot)
-                    .font(.selahVerseCompact)
-                    .foregroundStyle(.primary)
-                    .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
+    private func partSections(_ parts: [ServicePart]) -> some View {
+        ForEach(Array(parts.enumerated()), id: \.element.persistentModelID) { index, part in
+            Section {
+                DisclosureGroup(isExpanded: expansion(for: part)) {
+                    partContent(part, index: index)
+                } label: {
+                    partLabel(part, index: index, count: parts.count)
+                }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
-        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func partContent(_ part: ServicePart, index: Int) -> some View {
+        switch part.kind {
+        case .sermon, .bibleClass:
+            ServiceTalkFields(
+                part: part,
+                index: index,
+                focus: $focus,
+                onAddVerse: { pickerPart = part }
+            )
+        case .song:
+            ServiceSongFields(
+                part: part,
+                index: index,
+                focus: $focus,
+                library: librarySongs,
+                onPick: { song in
+                    SongLibrary.adopt(song, for: part, in: modelContext)
+                    focus = nil
+                },
+                onTypeChange: { _ = SongLibrary.link(part, in: modelContext) }
+            )
+        }
+    }
+
+    private func expansion(for part: ServicePart) -> Binding<Bool> {
+        let id = part.persistentModelID
+        return Binding(
+            get: { expanded.contains(id) },
+            set: { isOpen in
+                if isOpen { expanded.insert(id) } else { expanded.remove(id) }
+            }
+        )
+    }
+
+    /// Disclosure row: tile, heading, a one-line summary while closed, and the favourite star for talks.
+    /// The whole row (except the star) opens and closes the part; swipe or long-press to delete or move it.
+    private func partLabel(_ part: ServicePart, index: Int, count: Int) -> some View {
+        let isOpen = expanded.contains(part.persistentModelID)
+        let heading = ServicesLogic.partHeading(kind: part.kind, songType: part.songType)
+        let summary = Self.summary(of: part)
+        return HStack(spacing: Theme.Spacing.xs) {
+            HStack(spacing: Theme.Spacing.s) {
+                TileIcon(icon: Self.icon(for: part.kind), tone: Self.tileTone(for: part.kind))
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                    Text(heading)
+                        .font(.selahCardTitle)
+                        .foregroundStyle(.primary)
+                    if !isOpen && !summary.isEmpty {
+                        Text(summary)
+                            .font(.selahLabel)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { toggle(part) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(summary.isEmpty ? heading : "\(heading), \(summary)")
+            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+            .accessibilityHint("Shows or hides this part")
+            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityIdentifier("part-row-\(index)")
+
+            if part.kind != .song {
+                Button {
+                    part.isFavourite.toggle()
+                    favouriteTaps += 1
+                } label: {
+                    PIconView(.star, filled: part.isFavourite, size: 22)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("favourite-part-\(index)")
+                .accessibilityLabel(part.kind == .sermon ? "Favourite sermon" : "Favourite Bible class")
+                .accessibilityValue(part.isFavourite ? "On" : "Off")
+                .accessibilityAddTraits(part.isFavourite ? .isSelected : [])
+            }
+        }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
-                deleteVerse(verse)
+                requestDelete(part)
             } label: {
                 Label("Delete", picon: .trash)
             }
         }
         .contextMenu {
+            Button { move(part, by: -1) } label: { Label("Move up", picon: .caretUp) }
+                .disabled(ServicesLogic.movedIndex(index, by: -1, count: count) == nil)
+            Button { move(part, by: 1) } label: { Label("Move down", picon: .caretDown) }
+                .disabled(ServicesLogic.movedIndex(index, by: 1, count: count) == nil)
             Button(role: .destructive) {
-                deleteVerse(verse)
+                requestDelete(part)
             } label: {
                 Label("Delete", picon: .trash)
             }
         }
+        .accessibilityAction(named: "Move up") { move(part, by: -1) }
+        .accessibilityAction(named: "Move down") { move(part, by: 1) }
+        .accessibilityAction(named: "Delete") { requestDelete(part) }
     }
 
-    private func addVerse(_ ref: VerseRef) {
-        guard let part = pickerPart else { return }
-        ref.part = part
-        modelContext.insert(ref)
-        ref.service = service
+    private func toggle(_ part: ServicePart) {
+        let binding = expansion(for: part)
+        if reduceMotion {
+            binding.wrappedValue.toggle()
+        } else {
+            withAnimation(.snappy) { binding.wrappedValue.toggle() }
+        }
     }
 
-    private func deleteVerse(_ verse: VerseRef) {
-        modelContext.delete(verse)
-    }
+    // MARK: Reorder
 
-    // MARK: Songs
-
-    private func songsSection(proxy: ScrollViewProxy) -> some View {
+    private func reorderSection(_ parts: [ServicePart]) -> some View {
         Section {
-            DisclosureGroup(isExpanded: $songsOpen) {
-                let songs = sortedSongs
-                ForEach(Array(songs.enumerated()), id: \.element.persistentModelID) { index, song in
-                    SongRow(
-                        song: song,
-                        position: index + 1,
-                        focus: $focus,
-                        canMoveUp: ServicesLogic.movedIndex(index, by: -1, count: songs.count) != nil,
-                        canMoveDown: ServicesLogic.movedIndex(index, by: 1, count: songs.count) != nil,
-                        onMove: { step in moveSong(at: index, by: step) },
-                        onDelete: { deleteSong(at: index) }
-                    )
+            ForEach(parts) { part in
+                HStack(spacing: Theme.Spacing.s) {
+                    TileIcon(icon: Self.icon(for: part.kind), tone: Self.tileTone(for: part.kind))
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                        Text(ServicesLogic.partHeading(kind: part.kind, songType: part.songType))
+                            .font(.selahHeadline)
+                        let summary = Self.summary(of: part)
+                        if !summary.isEmpty {
+                            Text(summary)
+                                .font(.selahLabel)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
                 }
-                .onMove(perform: reorderSongs)
-                Button { addSong(proxy: proxy) } label: {
-                    PLabel("Add song", icon: .musicNotes, size: 18)
-                        .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+                .accessibilityElement(children: .combine)
+            }
+            .onMove { source, destination in
+                reorder(parts, from: source, to: destination)
+            }
+            .onDelete { offsets in
+                for offset in offsets where parts.indices.contains(offset) {
+                    requestDelete(parts[offset])
                 }
-                .accessibilityIdentifier("add-song")
-            } label: {
-                toggleLabel(title: "Songs", isExpanded: $songsOpen, identifier: "section-songs")
+            }
+        } footer: {
+            Text("Drag the handles to change the order.")
+        }
+    }
+
+    // MARK: Add
+
+    private func addSection(proxy: ScrollViewProxy, isEmpty: Bool) -> some View {
+        Section {
+            addButton("Add sermon", kind: .sermon, identifier: "add-part-sermon", proxy: proxy)
+            addButton("Add Bible class", kind: .bibleClass, identifier: "add-part-class", proxy: proxy)
+            addButton("Add song", kind: .song, identifier: "add-part-song", proxy: proxy)
+        } footer: {
+            if isEmpty {
+                Text("Add each part in the order it happens. Songs you log are kept in your song library.")
             }
         }
     }
 
-    private func addSong(proxy: ScrollViewProxy) {
-        let next = (service.songs.map { $0.order }.max() ?? -1) + 1
-        let song = Song(order: next)
-        modelContext.insert(song)
-        song.service = service
+    private func addButton(_ title: String, kind: ServicePartKind, identifier: String, proxy: ScrollViewProxy) -> some View {
+        Button {
+            addPart(kind, proxy: proxy)
+        } label: {
+            HStack(spacing: Theme.Spacing.s) {
+                TileIcon(icon: Self.icon(for: kind), tone: Self.tileTone(for: kind))
+                Text(title)
+                    .font(.selahBody)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: Theme.minTapTarget)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func addPart(_ kind: ServicePartKind, proxy: ScrollViewProxy) {
+        let part = ServicePart(kind: kind, order: service.nextPartOrder)
+        modelContext.insert(part)
+        part.service = service
         // Save now so the row id is the permanent one; a temporary id would change on autosave and drop the focus.
         try? modelContext.save()
-        let id = song.persistentModelID
+        let id = part.persistentModelID
+        expanded.insert(id)
         Task { @MainActor in
-            // Let the List lay out the new row before scrolling to it.
-            try? await Task.sleep(for: .milliseconds(200))
+            // Let the List lay out the new section before scrolling to it.
+            try? await Task.sleep(for: .milliseconds(250))
             if reduceMotion {
-                proxy.scrollTo(id, anchor: .center)
+                proxy.scrollTo(id, anchor: .top)
             } else {
-                withAnimation { proxy.scrollTo(id, anchor: .center) }
+                withAnimation { proxy.scrollTo(id, anchor: .top) }
             }
-            focus = .hymn(id)
+            // Songs start as hymns, so the hymn number comes first.
+            focus = kind == .song ? ServiceField.hymn(id) : ServiceField.partTitle(id)
         }
     }
 
-    private func deleteSong(at index: Int) {
-        let current = sortedSongs
-        guard current.indices.contains(index) else { return }
-        modelContext.delete(current[index])
-        var remaining = current
-        remaining.remove(at: index)
+    // MARK: Delete and move
+
+    private func requestDelete(_ part: ServicePart) {
+        if part.hasContent {
+            partToDelete = part
+        } else {
+            delete(part)
+        }
+    }
+
+    private func delete(_ part: ServicePart) {
+        focus = nil
+        SongLibrary.partWillBeDeleted(part, in: modelContext)
+        expanded.remove(part.persistentModelID)
+        let remaining = service.orderedParts.filter { $0 !== part }
+        modelContext.delete(part)
         renumber(remaining)
     }
 
-    private func moveSong(at index: Int, by step: Int) {
-        var current = sortedSongs
-        guard let target = ServicesLogic.movedIndex(index, by: step, count: current.count) else { return }
+    private func move(_ part: ServicePart, by step: Int) {
+        var current = service.orderedParts
+        guard let index = current.firstIndex(where: { $0 === part }),
+              let target = ServicesLogic.movedIndex(index, by: step, count: current.count) else { return }
         current.swapAt(index, target)
         renumber(current)
     }
 
-    private func reorderSongs(from source: IndexSet, to destination: Int) {
-        var current = sortedSongs
-        current.move(fromOffsets: source, toOffset: destination)
-        renumber(current)
+    private func reorder(_ parts: [ServicePart], from source: IndexSet, to destination: Int) {
+        let order = ServicesLogic.reorderedIndices(count: parts.count, from: source, to: destination)
+        renumber(order.map { parts[$0] })
     }
 
-    private func renumber(_ songs: [Song]) {
-        for (index, song) in songs.enumerated() {
-            song.order = index
+    private func renumber(_ parts: [ServicePart]) {
+        for (index, part) in parts.enumerated() where part.order != index {
+            part.order = index
         }
+    }
+
+    // MARK: Verses
+
+    private func addVerse(_ ref: VerseRef) {
+        guard let part = pickerPart else { return }
+        ref.part = part.kind == .bibleClass ? .bibleClass : .sermon
+        modelContext.insert(ref)
+        ref.servicePart = part
+    }
+
+    // MARK: Song library
+
+    /// Leaving a song's title or hymn number links it to the song library.
+    private func linkSongIfNeeded(leaving field: ServiceField?) {
+        guard let field else { return }
+        let id: PersistentIdentifier
+        switch field {
+        case .partTitle(let partID), .hymn(let partID): id = partID
+        default: return
+        }
+        guard let part = service.parts.first(where: { $0.persistentModelID == id }), part.kind == .song else { return }
+        SongLibrary.link(part, in: modelContext)
+    }
+
+    // MARK: Look
+
+    static func icon(for kind: ServicePartKind) -> PIcon {
+        switch kind {
+        case .sermon: return .quotes
+        case .bibleClass: return .book
+        case .song: return .musicNotes
+        }
+    }
+
+    static func tileTone(for kind: ServicePartKind) -> TileTone {
+        switch kind {
+        case .sermon: return .brand
+        case .bibleClass: return .sage
+        case .song: return .coral
+        }
+    }
+
+    /// One line under a closed part: "Grace that keeps · Pastor Mensah", or "Hymn 212, Great is thy faithfulness".
+    static func summary(of part: ServicePart) -> String {
+        let summary = part.summary
+        let title = summary.displayTitle
+        let person = part.kind == .song ? "" : part.person.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [title, person].filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
     }
 }
 
@@ -475,13 +550,14 @@ struct ServicePage: View {
 
 /// Which text field has focus on the service page.
 enum ServiceField: Hashable {
-    case gathering, sermonTitle, sermonist, classLesson, classTeacher
+    case gathering
+    case partTitle(PersistentIdentifier)
+    case partPerson(PersistentIdentifier)
     case hymn(PersistentIdentifier)
-    case songTitle(PersistentIdentifier)
 }
 
 /// A text field with a small label above it that stays when the field is filled; the placeholder is an example.
-private struct LabeledField: View {
+private struct ServiceLabeledField: View {
     let label: String
     let placeholder: String
     @Binding var text: String
@@ -500,6 +576,7 @@ private struct LabeledField: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             TextField(placeholder, text: $text, axis: axis)
+                .font(.selahBody)
                 .focused(focus, equals: field)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(capitalization)
@@ -511,55 +588,250 @@ private struct LabeledField: View {
     }
 }
 
-// MARK: - Song row
+// MARK: - Sermon and Bible class
 
-/// One song row: hymn number above, title below, so typing never hides words. Swipe to delete;
-/// Move up / Move down in the long-press menu for VoiceOver and Switch Control (drag handles show in Edit mode).
-private struct SongRow: View {
-    @Bindable var song: Song
-    let position: Int
+/// The rows inside a sermon or Bible class: title, person, verses, notes.
+private struct ServiceTalkFields: View {
+    @Bindable var part: ServicePart
+    let index: Int
     var focus: FocusState<ServiceField?>.Binding
-    let canMoveUp: Bool
-    let canMoveDown: Bool
-    let onMove: (Int) -> Void
-    let onDelete: () -> Void
+    let onAddVerse: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var isSermon: Bool { part.kind == .sermon }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            LabeledField(
-                label: "Hymn number",
-                placeholder: "e.g. 212",
-                text: $song.hymnNumber,
-                field: .hymn(song.persistentModelID),
-                focus: focus,
-                keyboard: .numberPad,
-                capitalization: .never,
-                identifier: "field-hymn-number",
-                accessibilityLabel: "Hymn number, song \(position)"
-            )
-            LabeledField(
-                label: "Song title",
-                placeholder: "e.g. Great is thy faithfulness",
-                text: $song.title,
-                field: .songTitle(song.persistentModelID),
-                focus: focus,
-                identifier: "field-song-title",
-                accessibilityLabel: "Song title, song \(position)"
-            )
+        ServiceLabeledField(
+            label: isSermon ? "Title" : "Lesson",
+            placeholder: isSermon ? "e.g. Grace that keeps" : "e.g. Walking in the Spirit",
+            text: $part.title,
+            field: .partTitle(part.persistentModelID),
+            focus: focus,
+            axis: .vertical,
+            identifier: "field-part-title-\(index)"
+        )
+        ServiceLabeledField(
+            label: isSermon ? "Sermonist" : "Taught by",
+            placeholder: isSermon ? "e.g. Pastor Mensah" : "e.g. Deacon Owusu",
+            text: $part.person,
+            field: .partPerson(part.persistentModelID),
+            focus: focus,
+            identifier: "field-part-person-\(index)"
+        )
+        ForEach(part.verses) { verse in
+            verseRow(verse)
         }
+        Button(action: onAddVerse) {
+            PLabel("Add verse", icon: .plus, size: 18)
+                .font(.selahBody)
+                .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("add-verse-\(index)")
+        .accessibilityHint("Finds a verse to attach")
+        RichNoteEditor(
+            text: $part.notes,
+            owner: .servicePart(part),
+            field: .body,
+            placeholder: isSermon ? "Sermon message" : "Class notes",
+            embedded: true
+        )
+        .padding(.vertical, Theme.Spacing.xs)
+    }
+
+    private func verseRow(_ verse: VerseRef) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+            Text(verse.reference)
+                .font(.selahLabel.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+            if !verse.textSnapshot.isEmpty {
+                Text(verse.textSnapshot)
+                    .font(.selahVerseCompact)
+                    .foregroundStyle(.primary)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+        .accessibilityElement(children: .combine)
         .swipeActions(edge: .trailing) {
-            Button(role: .destructive, action: onDelete) {
+            Button(role: .destructive) {
+                modelContext.delete(verse)
+            } label: {
                 Label("Delete", picon: .trash)
             }
         }
         .contextMenu {
-            Button { onMove(-1) } label: { Label("Move up", picon: .caretUp) }
-                .disabled(!canMoveUp)
-            Button { onMove(1) } label: { Label("Move down", picon: .caretDown) }
-                .disabled(!canMoveDown)
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete song", picon: .trash)
+            Button(role: .destructive) {
+                modelContext.delete(verse)
+            } label: {
+                Label("Delete", picon: .trash)
             }
+        }
+    }
+}
+
+// MARK: - Song
+
+/// The rows inside a song: type, hymn number (hymns only), title with library suggestions, lyrics link.
+private struct ServiceSongFields: View {
+    @Bindable var part: ServicePart
+    let index: Int
+    var focus: FocusState<ServiceField?>.Binding
+    let library: [LibrarySong]
+    let onPick: (LibrarySong) -> Void
+    let onTypeChange: () -> Void
+
+    private var titleFocused: Bool {
+        focus.wrappedValue == .partTitle(part.persistentModelID)
+    }
+
+    private var suggestions: [LibrarySong] {
+        guard titleFocused else { return [] }
+        let indices = SongLibraryLogic.suggestions(
+            for: part.title,
+            preferredType: part.songType,
+            in: library.map { $0.key }
+        )
+        return indices.map { library[$0] }.filter { $0 !== part.librarySong }
+    }
+
+    private var typeSelection: Binding<SongType> {
+        Binding(
+            get: { part.songType },
+            set: { newValue in
+                guard newValue != part.songType else { return }
+                part.songType = newValue
+                onTypeChange()
+            }
+        )
+    }
+
+    var body: some View {
+        Picker("Song type", selection: typeSelection) {
+            ForEach(SongType.allCases, id: \.self) { type in
+                Text(SongLibraryLogic.shortTypeName(type)).tag(type)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(minHeight: Theme.minTapTarget)
+        .accessibilityIdentifier("song-type-\(index)")
+
+        if part.songType == .hymn {
+            ServiceLabeledField(
+                label: "Hymn number",
+                placeholder: "e.g. 212",
+                text: $part.hymnNumber,
+                field: .hymn(part.persistentModelID),
+                focus: focus,
+                keyboard: .numberPad,
+                capitalization: .never,
+                identifier: "field-hymn-number-\(index)"
+            )
+        }
+
+        ServiceLabeledField(
+            label: "Song title",
+            placeholder: "e.g. Great is thy faithfulness",
+            text: $part.title,
+            field: .partTitle(part.persistentModelID),
+            focus: focus,
+            capitalization: .sentences,
+            identifier: "field-part-title-\(index)"
+        )
+
+        ForEach(Array(suggestions.enumerated()), id: \.element.persistentModelID) { position, song in
+            Button {
+                onPick(song)
+            } label: {
+                HStack(spacing: Theme.Spacing.s) {
+                    PIconView(.musicNotes, size: 18)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                        Text(song.title)
+                            .font(.selahBody)
+                            .foregroundStyle(.primary)
+                        Text(Self.detail(for: song))
+                            .font(.selahLabelSmall)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: Theme.minTapTarget)
+                .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("song-suggestion-\(index)-\(position)")
+            .accessibilityLabel("Use \(song.title), \(Self.detail(for: song))")
+        }
+
+        if let song = part.librarySong, song.hasLyrics {
+            NavigationLink {
+                PartLyricsPage(song: song)
+            } label: {
+                PLabel("Lyrics in library", icon: .textAlignLeft, size: 18)
+                    .font(.selahBody)
+                    .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+            }
+            .accessibilityIdentifier("song-lyrics-\(index)")
+        }
+    }
+
+    /// "Hymn 245 · in your songs", "Chorus · in your songs".
+    private static func detail(for song: LibrarySong) -> String {
+        let type = SongLibraryLogic.typeName(song.songType)
+        let number = song.songType == .hymn ? song.hymnNumber.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let kind = number.isEmpty ? type : "\(type) \(number)"
+        return "\(kind) \u{00B7} in your songs"
+    }
+}
+
+/// Read-only lyrics of a library song: numbered verses with the refrain after the first one.
+private struct PartLyricsPage: View {
+    let song: LibrarySong
+
+    private var verses: [String] {
+        song.lyricVerses.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private var refrain: String {
+        song.refrain.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        List {
+            ForEach(Array(verses.enumerated()), id: \.offset) { index, verse in
+                Section {
+                    Text(verse)
+                        .font(.selahVerse)
+                        .padding(.vertical, Theme.Spacing.xxs)
+                } header: {
+                    Text("Verse \(index + 1)")
+                        .textCase(nil)
+                }
+                if index == 0 && !refrain.isEmpty {
+                    refrainSection
+                }
+            }
+            if verses.isEmpty && !refrain.isEmpty {
+                refrainSection
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(song.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .hidesPlusButton()
+    }
+
+    private var refrainSection: some View {
+        Section {
+            Text(refrain)
+                .font(.selahVerse)
+                .italic()
+                .padding(.vertical, Theme.Spacing.xxs)
+        } header: {
+            Text("Refrain")
+                .textCase(nil)
         }
     }
 }
@@ -591,25 +863,35 @@ struct ServiceSheet: View {
 }
 
 #Preview("Service page") {
+    ServicePagePreview()
+        .modelContainer(SampleData.container)
+        .environment(AppRouter())
+}
+
+#Preview("New service") {
     NavigationStack {
-        ServicePage(service: Service(
-            date: Date(),
-            gatheringName: "Sunday worship",
-            sermonTitle: "Grace upon grace",
-            sermonist: "Pastor Mensah"
-        ))
+        ServicePage(service: Service(date: Date(), gatheringName: "Sunday worship"))
     }
     .modelContainer(SampleData.container)
     .environment(AppRouter())
 }
 
 #Preview("Service sheet") {
-    ServiceSheet(service: Service(
-        date: Date(),
-        gatheringName: "Sunday worship",
-        sermonTitle: "Grace upon grace",
-        sermonist: "Pastor Mensah"
-    ))
-    .modelContainer(SampleData.container)
-    .environment(AppRouter())
+    ServiceSheet(service: Service(date: Date(), gatheringName: "Sunday worship"))
+        .modelContainer(SampleData.container)
+        .environment(AppRouter())
+}
+
+private struct ServicePagePreview: View {
+    @Query(sort: \Service.date, order: .reverse) private var services: [Service]
+
+    var body: some View {
+        NavigationStack {
+            if let service = services.first {
+                ServicePage(service: service)
+            } else {
+                Text("No sample service")
+            }
+        }
+    }
 }

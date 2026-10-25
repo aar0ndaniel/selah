@@ -86,6 +86,10 @@ struct RootTabView: View {
         }
         .preferredColorScheme(appearance)
         .environment(router)
+        // One-time move of services recorded before parts (sermon / Bible class / song blocks). Idempotent.
+        .task {
+            ServicePartMigration.runOnLaunch(in: modelContext)
+        }
         .onChange(of: scenePhase, initial: true) { _, phase in
             quiet.isSceneActive = phase == .active
             // Refreshes "Time for Philippians 3" style bodies and drops stale reminders.

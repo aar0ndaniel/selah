@@ -29,6 +29,7 @@ struct BookPage: View {
     @State private var isRemoved = false
     @State private var shareItem: ShareItem?
     @State private var showExportError = false
+    @State private var chaptersExpanded = false
 
     private var tone: Tone { plan.cardTone }
 
@@ -71,9 +72,9 @@ struct BookPage: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 header
                 todayButton
+                notesSection
                 calendarSection
                 chaptersSection
-                notesSection
             }
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.bottom, Theme.Spacing.l)
@@ -270,16 +271,21 @@ struct BookPage: View {
     // MARK: Today
 
     private var todayButton: some View {
-        Button {
-            openDay(Date())
-        } label: {
-            PLabel(
-                todayEntry == nil ? "Write today's note" : "Open today's note",
-                icon: .notePencil
-            )
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Button {
+                openDay(Date())
+            } label: {
+                PLabel(
+                    todayEntry == nil ? "Write today's note" : "Open today's note",
+                    icon: .notePencil
+                )
+            }
+            .buttonStyle(.selahPrimaryFull)
+            .accessibilityIdentifier("today-note-button")
+            Text(todayEntry == nil ? "Nothing written for today yet." : "Today's note is saved.")
+                .font(.selahLabelSmall)
+                .foregroundStyle(.secondary)
         }
-        .buttonStyle(.selahPrimaryFull)
-        .accessibilityIdentifier("today-note-button")
     }
 
     private func openDay(_ day: Date) {
@@ -328,11 +334,8 @@ struct BookPage: View {
     // MARK: Chapters
 
     private var chaptersSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            Text("Chapters")
-                .font(.selahTitle)
-                .accessibilityAddTraits(.isHeader)
-            SurfaceCard {
+        SurfaceCard {
+            DisclosureGroup(isExpanded: $chaptersExpanded) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? circleSize + 16 : circleSize), spacing: Theme.Spacing.xs)],
@@ -346,7 +349,13 @@ struct BookPage: View {
                         .font(.selahLabelSmall)
                         .foregroundStyle(.secondary)
                 }
+                .padding(.top, Theme.Spacing.s)
+            } label: {
+                Text("Chapters \u{00B7} \(plan.chaptersRead.count) of \(plan.totalChapters) read")
+                    .font(.selahTitle)
+                    .accessibilityAddTraits(.isHeader)
             }
+            .tint(.secondary)
         }
     }
 

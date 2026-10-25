@@ -24,7 +24,7 @@ struct BackupServiceTests {
         return text
     }
 
-    /// A small but complete data set that touches all ten models.
+    /// A small but complete data set that touches every model (services recorded with parts).
     private func populate(_ context: ModelContext, highlightID: String) throws {
         let profile = UserProfile(name: "Ama", congregation: "Accra", translation: .bsb, textSize: 22, appearance: .dark, onboarded: true)
         context.insert(profile)
@@ -46,23 +46,45 @@ struct BackupServiceTests {
         context.insert(comment)
         entry.comments.append(comment)
 
-        let service = Service(
-            date: Date(timeIntervalSince1970: 1_700_100_000),
-            gatheringName: "Sunday",
-            sermonTitle: "Joy",
-            sermonist: "Elder Mensah",
-            sermonNote: richText(highlightID: "sermon-highlight"),
-            sermonFavourite: true
-        )
+        let service = Service(date: Date(timeIntervalSince1970: 1_700_100_000), gatheringName: "Sunday")
+        service.partsMigrated = true
         context.insert(service)
-        for (index, title) in ["Amazing Grace", "How Great Thou Art"].enumerated() {
-            let song = Song(hymnNumber: "\(index + 1)", title: title, order: index)
-            context.insert(song)
-            service.songs.append(song)
-        }
+        let sermon = ServicePart(
+            kind: .sermon,
+            order: 0,
+            title: "Joy",
+            person: "Elder Mensah",
+            notes: richText(highlightID: "sermon-highlight"),
+            isFavourite: true
+        )
+        context.insert(sermon)
+        sermon.service = service
         let serviceVerse = VerseRef(book: "John", chapter: 3, verseStart: 16, verseEnd: 16, textSnapshot: "For God so loved the world", part: .sermon)
         context.insert(serviceVerse)
-        service.verses.append(serviceVerse)
+        sermon.verses.append(serviceVerse)
+        let sermonComment = NoteComment(highlightID: "sermon-highlight", quotedText: "peace", comment: "Shalom", field: .body)
+        context.insert(sermonComment)
+        sermon.comments.append(sermonComment)
+
+        let blessed = LibrarySong(
+            title: "Blessed assurance",
+            songType: .hymn,
+            hymnNumber: "245",
+            lyricVerses: ["Blessed assurance, Jesus is mine!", "Perfect submission, perfect delight,"],
+            refrain: "This is my story, this is my song,",
+            source: .logged
+        )
+        let chorus = LibrarySong(title: "This is the day", songType: .chorus, source: .logged)
+        let added = LibrarySong(title: "Amazing grace", songType: .hymn, source: .added)
+        for song in [blessed, chorus, added] { context.insert(song) }
+        let hymnPart = ServicePart(kind: .song, order: 1, title: "Blessed assurance", songType: .hymn, hymnNumber: "245")
+        let chorusPart = ServicePart(kind: .song, order: 2, title: "This is the day", songType: .chorus)
+        for part in [hymnPart, chorusPart] {
+            context.insert(part)
+            part.service = service
+        }
+        hymnPart.librarySong = blessed
+        chorusPart.librarySong = chorus
 
         let note = PersonalNote(title: "Prayer list", body: AttributedString("Pray daily"), colour: .sky, pinned: true)
         context.insert(note)
@@ -105,10 +127,12 @@ struct BackupServiceTests {
         #expect(try count(ReadingReminder.self, fresh) == 1)
         #expect(try count(StudyEntry.self, fresh) == 1)
         #expect(try count(Service.self, fresh) == 1)
-        #expect(try count(Song.self, fresh) == 2)
+        #expect(try count(Song.self, fresh) == 0)
+        #expect(try count(ServicePart.self, fresh) == 3)
+        #expect(try count(LibrarySong.self, fresh) == 3)
         #expect(try count(PersonalNote.self, fresh) == 1)
         #expect(try count(VerseRef.self, fresh) == 3)
-        #expect(try count(NoteComment.self, fresh) == 2)
+        #expect(try count(NoteComment.self, fresh) == 3)
 
         let plan = try #require(try fresh.fetch(FetchDescriptor<ReadingPlan>()).first)
         #expect(plan.bookName == "Philippians")
@@ -126,10 +150,27 @@ struct BackupServiceTests {
         #expect(highlighted == [highlightID])
 
         let service = try #require(try fresh.fetch(FetchDescriptor<Service>()).first)
-        #expect(service.songs.count == 2)
-        #expect(service.verses.count == 1)
-        #expect(service.sermonFavourite)
-        #expect(service.sermonist == "Elder Mensah")
+        #expect(service.partsMigrated)
+        let parts = service.orderedParts
+        #expect(parts.map { $0.kind } == [.sermon, .song, .song])
+        let sermon = parts[0]
+        #expect(sermon.isFavourite)
+        #expect(sermon.person == "Elder Mensah")
+        #expect(sermon.verses.map { $0.reference } == ["John 3:16"])
+        #expect(sermon.comments.first?.highlightID == "sermon-highlight")
+        #expect(HighlightLogic.orderedIDs(in: sermon.notes) == ["sermon-highlight"])
+        #expect(parts[1].hymnNumber == "245")
+        #expect(parts[2].songType == .chorus)
+
+        let library = try fresh.fetch(FetchDescriptor<LibrarySong>())
+        let blessed = try #require(library.first { $0.title == "Blessed assurance" })
+        #expect(parts[1].librarySong === blessed)
+        #expect(blessed.lyricVerses.count == 2)
+        #expect(blessed.refrain == "This is my story, this is my song,")
+        #expect(blessed.timesSung == 1)
+        let added = try #require(library.first { $0.title == "Amazing grace" })
+        #expect(added.source == .added)
+        #expect(added.timesSung == 0)
 
         let note = try #require(try fresh.fetch(FetchDescriptor<PersonalNote>()).first)
         #expect(note.colour == .sky)
@@ -149,14 +190,73 @@ struct BackupServiceTests {
         let backup = try BackupService.makeBackup(from: context)
         // Add extra rows, then restore: the extras must disappear.
         context.insert(ReadingPlan(bookName: "Extra", totalChapters: 1))
-        context.insert(Service(sermonTitle: "Extra"))
+        context.insert(Service(gatheringName: "Extra"))
+        context.insert(LibrarySong(title: "Extra song", source: .added))
         try context.save()
 
         try BackupService.restore(backup, into: context)
 
         #expect(try count(ReadingPlan.self, context) == 1)
         #expect(try count(Service.self, context) == 1)
+        #expect(try count(LibrarySong.self, context) == 3)
         #expect(try count(UserProfile.self, context) == 1)
+    }
+
+    /// A backup made before service parts (no parts, no library) restores and is migrated into parts.
+    @Test func oldBackupWithoutPartsIsMigratedOnRestore() throws {
+        let source = try makeContext()
+        let service = Service(
+            date: Date(timeIntervalSince1970: 1_700_100_000),
+            gatheringName: "Sunday",
+            sermonTitle: "Joy",
+            sermonist: "Elder Mensah",
+            sermonNote: richText(highlightID: "old-highlight"),
+            sermonFavourite: true,
+            classLesson: "Prayer",
+            classTeacher: "Sister Ama"
+        )
+        source.insert(service)
+        for (index, title) in ["Amazing Grace", "How Great Thou Art"].enumerated() {
+            let song = Song(hymnNumber: "\(index + 1)", title: title, order: index)
+            source.insert(song)
+            service.songs.append(song)
+        }
+        let verse = VerseRef(book: "John", chapter: 3, verseStart: 16, verseEnd: 16, part: .sermon)
+        source.insert(verse)
+        service.verses.append(verse)
+        let comment = NoteComment(highlightID: "old-highlight", quotedText: "peace", comment: "Rest", field: .sermon)
+        source.insert(comment)
+        service.comments.append(comment)
+        try source.save()
+
+        // Strip the new keys, as an old version of Selah would have written the file.
+        var backup = try BackupService.makeBackup(from: source)
+        backup.librarySongs = nil
+        for index in backup.services.indices {
+            backup.services[index].parts = nil
+            backup.services[index].partsMigrated = nil
+        }
+        let data = try BackupService.encode(backup)
+        let json = String(decoding: data, as: UTF8.self)
+        #expect(!json.contains("partsMigrated"))
+        #expect(!json.contains("librarySongs"))
+
+        let fresh = try makeContext()
+        try BackupService.restore(try BackupService.decode(data), into: fresh)
+
+        let restored = try #require(try fresh.fetch(FetchDescriptor<Service>()).first)
+        #expect(restored.partsMigrated)
+        let parts = restored.orderedParts
+        #expect(parts.map { $0.kind } == [.sermon, .bibleClass, .song, .song])
+        #expect(parts[0].title == "Joy")
+        #expect(parts[0].isFavourite)
+        #expect(parts[0].verses.count == 1)
+        #expect(parts[0].comments.count == 1)
+        #expect(parts[1].person == "Sister Ama")
+        #expect(parts[2].hymnNumber == "1")
+        #expect(restored.verses.isEmpty)
+        #expect(try count(LibrarySong.self, fresh) == 2)
+        #expect(parts[3].librarySong?.title == "How Great Thou Art")
     }
 
     @Test func decodeRejectsBadFilesWithPlainErrors() throws {

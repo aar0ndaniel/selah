@@ -39,7 +39,8 @@ enum StreakKind: String, CaseIterable, Hashable, Sendable {
 
 // MARK: - Tile
 
-/// One streak as a solid coloured tile: big number, "day streak, Study", and the best run. No icon.
+/// One streak as a solid coloured tile: a burning flame on a dark badge, the big number, "day streak, Study",
+/// and the best run.
 /// Change `celebration` to play the celebration (bounce, particles, haptic).
 struct StreakTile: View {
     let kind: StreakKind
@@ -53,28 +54,33 @@ struct StreakTile: View {
     @State private var bounced = false
     @State private var burstProgress: CGFloat = 0
     @State private var showBurst = false
+    @State private var flared = false
 
     private var spokenDays: String { count == 1 ? "1 day" : "\(count) days" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-            Text("\(count)")
-                .font(.selahStatLarge)
-                .foregroundStyle(kind.tileLabel)
-                .scaleEffect(bounced ? 1.25 : 1, anchor: .leading)
-                .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(count)))
-                .animation(.easeInOut(duration: 0.3), value: count)
-                .background(alignment: .leading) {
-                    if showBurst {
-                        ParticleBurst(progress: burstProgress, colour: kind.tileLabel)
+        HStack(alignment: .center, spacing: Theme.Spacing.m) {
+            StreakFlameBadge(flared: flared)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                Text("\(count)")
+                    .font(.selahStatLarge)
+                    .foregroundStyle(kind.tileLabel)
+                    .scaleEffect(bounced ? 1.25 : 1, anchor: .leading)
+                    .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(count)))
+                    .animation(.easeInOut(duration: 0.3), value: count)
+                    .background(alignment: .leading) {
+                        if showBurst {
+                            ParticleBurst(progress: burstProgress, colour: kind.tileLabel)
+                        }
                     }
-                }
-            Text("day streak \u{00B7} \(kind.title)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(kind.tileLabel)
-            Text("Best \(best)")
-                .font(.footnote)
-                .foregroundStyle(kind.tileLabel.opacity(0.85))
+                Text("day streak \u{00B7} \(kind.title)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(kind.tileLabel)
+                Text("Best \(best)")
+                    .font(.footnote)
+                    .foregroundStyle(kind.tileLabel.opacity(0.85))
+            }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.m)
@@ -92,11 +98,13 @@ struct StreakTile: View {
         burstProgress = 0
         showBurst = true
         withAnimation(.spring(duration: 0.35, bounce: 0.6)) { bounced = true }
+        flared = true
         withAnimation(.easeOut(duration: 0.7)) { burstProgress = 1 }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(260))
             withAnimation(.spring(duration: 0.4, bounce: 0.4)) { bounced = false }
             try? await Task.sleep(for: .milliseconds(600))
+            flared = false
             showBurst = false
         }
     }

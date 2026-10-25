@@ -509,6 +509,8 @@ private struct SettingsForm: View {
         deleteAll(VerseRef.self)
         deleteAll(NoteComment.self)
         deleteAll(Song.self)
+        deleteAll(ServicePart.self)
+        deleteAll(LibrarySong.self)
 
         // Keep the profile (and onboarded) so Selah opens straight to a clean Today.
         profile.name = ""

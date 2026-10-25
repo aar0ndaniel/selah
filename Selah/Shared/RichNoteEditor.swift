@@ -109,6 +109,7 @@ struct RichNoteEditor: View {
         case .study(let entry): all = entry.comments
         case .service(let service): all = service.comments
         case .personal(let note): all = note.comments
+        case .servicePart(let part): all = part.comments
         }
         let order = HighlightLogic.orderedIDs(in: text)
         func position(_ comment: NoteComment) -> Int {
@@ -158,6 +159,7 @@ struct RichNoteEditor: View {
         case .study(let entry): comment.studyEntry = entry
         case .service(let service): comment.service = service
         case .personal(let note): comment.personalNote = note
+        case .servicePart(let part): comment.servicePart = part
         }
         try? modelContext.save()
         unresolvedID = nil

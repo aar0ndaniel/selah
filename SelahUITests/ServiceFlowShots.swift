@@ -1,6 +1,6 @@
 import XCTest
 
-/// Walks through recording a service (sermon, verse, Bible class, songs) and screenshots each step,
+/// Walks through recording a service (add a sermon, a verse, a Bible class, a hymn) and screenshots each step,
 /// so the owner can see the flow without a Mac. Runs only in the `[shots]` CI step.
 /// Steps are best-effort: if an element can't be found the walk carries on and still screenshots.
 final class ServiceFlowShots: XCTestCase {
@@ -32,7 +32,8 @@ final class ServiceFlowShots: XCTestCase {
         pause()
         snap(app, "s\(prefix)1-services-\(mode)")
 
-        // 2. Open today's service (meeting-day card), or start one with the + button.
+        // 2. Open today's service (meeting-day card), or start one with the + button. A new service is empty:
+        //    just the Add sermon / Add Bible class / Add song buttons.
         let open = first([
             app.buttons["Add notes for today's service"],
             app.buttons["Open today's service"],
@@ -43,15 +44,16 @@ final class ServiceFlowShots: XCTestCase {
         pause(2)
         snap(app, "s\(prefix)2-service-page-\(mode)")
 
-        // 3. Fill in the sermon.
-        type(into: first([app.textFields["field-sermon-title"], app.textViews["field-sermon-title"],
-                          app.textFields["Title"], app.textViews["Title"]]), "Grace that keeps")
-        type(into: first([app.textFields["field-sermonist"], app.textFields["Sermonist"]]), "Pastor Mensah\n")
+        // 3. Add a sermon and fill it in (the new part opens and its title gets focus).
+        tap(first([app.buttons["add-part-sermon"], app.buttons["Add sermon"]]))
+        pause(1.5)
+        type(into: lastField(app, prefix: "field-part-title-"), "Grace that keeps")
+        type(into: lastField(app, prefix: "field-part-person-"), "Pastor Mensah\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)3-sermon-filled-\(mode)")
 
         // 4. Add a verse to the sermon.
-        tap(first([app.buttons["Add verse"]]))
+        tap(lastMatch(app.buttons, prefix: "add-verse-") ?? first([app.buttons["Add verse"]]))
         pause(1.5)
         if let search = first([app.searchFields.firstMatch, app.textFields["John 3:16 or Psalm 23"]], timeout: 4),
            search.exists, search.isHittable {
@@ -66,36 +68,55 @@ final class ServiceFlowShots: XCTestCase {
         pause(1.5)
         snap(app, "s\(prefix)5-verse-added-\(mode)")
 
-        // 5. Open the Bible class section and fill it in.
-        app.swipeUp()
-        pause()
-        // A new service opens Bible class already; only tap the header if the fields are not showing.
-        let lessonField = first([app.textFields["field-class-lesson"], app.textViews["field-class-lesson"]], timeout: 1)
-        if lessonField == nil {
-            tap(first([app.buttons["section-class"], app.staticTexts["section-class"],
-                       app.buttons["Bible class"], app.staticTexts["Bible class"]]))
-            pause()
-        }
-        type(into: first([app.textFields["field-class-lesson"], app.textViews["field-class-lesson"],
-                          app.textFields["Lesson"], app.textViews["Lesson"]]), "Walking in the Spirit")
-        type(into: first([app.textFields["field-class-teacher"], app.textFields["Taught by"]]), "Deacon Owusu\n")
+        // 5. Add a Bible class below the sermon and fill it in.
+        scrollTo(app, app.buttons["add-part-class"])
+        tap(first([app.buttons["add-part-class"], app.buttons["Add Bible class"]]))
+        pause(1.5)
+        type(into: lastField(app, prefix: "field-part-title-"), "Walking in the Spirit")
+        type(into: lastField(app, prefix: "field-part-person-"), "Deacon Owusu\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)6-bible-class-\(mode)")
 
-        // 6. Songs.
-        app.swipeUp()
-        pause()
-        tap(first([app.buttons["add-song"], app.buttons["Add song"]]))
+        // 6. Add a song: a hymn with its number and title.
+        scrollTo(app, app.buttons["add-part-song"])
+        tap(first([app.buttons["add-part-song"], app.buttons["Add song"]]))
         pause(1.5)
+        tap(first([app.segmentedControls.buttons["Hymn"], app.buttons["Hymn"]], timeout: 2))
         // The app focuses the new song's hymn number field; type into it (tapping first is harmless).
-        type(into: first([app.textFields["field-hymn-number"], app.textFields["Hymn number"]]), "212")
+        type(into: lastField(app, prefix: "field-hymn-number-"), "212")
         dismissKeyboard(app)
-        type(into: first([app.textFields["field-song-title"], app.textFields["Song title"]]), "Great is thy faithfulness\n")
+        type(into: lastField(app, prefix: "field-part-title-"), "Great is thy faithfulness\n")
         dismissKeyboard(app)
         snap(app, "s\(prefix)7-songs-\(mode)")
     }
 
     // MARK: - Helpers
+
+    /// The last element (newest part) whose identifier starts with `prefix`.
+    @MainActor
+    private func lastMatch(_ query: XCUIElementQuery, prefix: String) -> XCUIElement? {
+        let matches = query.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+        guard matches.firstMatch.waitForExistence(timeout: 3) else { return nil }
+        let count = matches.count
+        return count > 0 ? matches.element(boundBy: count - 1) : nil
+    }
+
+    /// A text field or multi-line text view of the newest part.
+    @MainActor
+    private func lastField(_ app: XCUIApplication, prefix: String) -> XCUIElement? {
+        lastMatch(app.textFields, prefix: prefix) ?? lastMatch(app.textViews, prefix: prefix)
+    }
+
+    /// Swipes up a few times until `element` is on screen.
+    @MainActor
+    private func scrollTo(_ app: XCUIApplication, _ element: XCUIElement) {
+        var tries = 0
+        while tries < 4 && !(element.exists && element.isHittable) {
+            app.swipeUp()
+            pause(0.6)
+            tries += 1
+        }
+    }
 
     @MainActor
     private func first(_ elements: [XCUIElement], timeout: TimeInterval = 3) -> XCUIElement? {

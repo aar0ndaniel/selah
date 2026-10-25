@@ -40,3 +40,27 @@ enum NoteColour: String, Codable, Sendable, CaseIterable {
     case rose
     case sand
 }
+
+/// What one part of a service is. A service is a list of parts in the order they happened.
+enum ServicePartKind: String, Codable, Sendable, CaseIterable {
+    case sermon
+    case bibleClass
+    case song
+}
+
+/// The kind of song sung in a service or kept in the song library.
+enum SongType: String, Codable, Sendable, CaseIterable {
+    case hymn
+    case chorus
+    case worship
+}
+
+/// Where a song in the library came from.
+enum LibrarySongSource: String, Codable, Sendable, CaseIterable {
+    /// Created when a song was logged in a service.
+    case logged
+    /// Added by hand on the Songs tab.
+    case added
+    /// Brought in from a hymnal lookup.
+    case imported
+}

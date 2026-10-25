@@ -12,6 +12,8 @@ final class NoteComment {
     var studyEntry: StudyEntry?
     var service: Service?
     var personalNote: PersonalNote?
+    /// The sermon or Bible class part whose notes this comment belongs to.
+    var servicePart: ServicePart?
 
     init(
         highlightID: String = UUID().uuidString,

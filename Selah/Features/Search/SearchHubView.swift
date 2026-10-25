@@ -247,7 +247,7 @@ struct SearchHubView: View {
         case .study:
             return entries.first { NoteItem.makeID(.study, $0) == item.id }?.note
         case .service:
-            return services.first { NoteItem.makeID(.service, $0) == item.id }?.sermonNote
+            return services.first { NoteItem.makeID(.service, $0) == item.id }?.previewNote
         }
     }
 

@@ -135,3 +135,89 @@ enum ServicesLogic {
         return target
     }
 }
+
+// MARK: - Service parts
+
+/// Plain value copy of a service part (sermon, Bible class or song), so the row and title rules need no SwiftData.
+struct ServicePartSummary: Sendable, Equatable {
+    var kind: ServicePartKind
+    var title: String
+    var person: String
+    var songType: SongType
+    var hymnNumber: String
+    var isFavourite: Bool
+
+    init(
+        kind: ServicePartKind,
+        title: String = "",
+        person: String = "",
+        songType: SongType = .hymn,
+        hymnNumber: String = "",
+        isFavourite: Bool = false
+    ) {
+        self.kind = kind
+        self.title = title
+        self.person = person
+        self.songType = songType
+        self.hymnNumber = hymnNumber
+        self.isFavourite = isFavourite
+    }
+
+    /// What the part is called in one line: the title, or for a song "Hymn 212, Title".
+    var displayTitle: String {
+        switch kind {
+        case .song:
+            return SongLibraryLogic.displayName(type: songType, hymnNumber: hymnNumber, title: title)
+        case .sermon, .bibleClass:
+            return title.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+}
+
+/// The headline of a service row and note card.
+struct ServiceHeadline: Sendable, Equatable {
+    var title: String
+    /// Sermonist or teacher of the part the title came from; empty for songs.
+    var detail: String
+}
+
+extension ServicesLogic {
+    /// Row title of a service: the first sermon with a title, else the first part that has a title or hymn number,
+    /// else nil (the caller shows the gathering name).
+    static func headline(parts: [ServicePartSummary]) -> ServiceHeadline? {
+        func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let sermon = parts.first(where: { $0.kind == .sermon && !$0.displayTitle.isEmpty }) {
+            return ServiceHeadline(title: sermon.displayTitle, detail: trimmed(sermon.person))
+        }
+        if let part = parts.first(where: { !$0.displayTitle.isEmpty }) {
+            return ServiceHeadline(title: part.displayTitle, detail: part.kind == .song ? "" : trimmed(part.person))
+        }
+        return nil
+    }
+
+    /// Whether a part starts open on the service page. Sermons and Bible classes open (that is where notes are
+    /// typed); a song opens only while it is still empty, otherwise its one-line summary in the row is enough.
+    static func partStartsExpanded(kind: ServicePartKind, hasContent: Bool) -> Bool {
+        kind == .song ? !hasContent : true
+    }
+
+    /// New `order` values after moving rows, as `List.onMove` reports it. Returns the original indices in the new order.
+    static func reorderedIndices(count: Int, from source: IndexSet, to destination: Int) -> [Int] {
+        let valid = source.filter { $0 >= 0 && $0 < count }
+        let moving = valid.sorted()
+        var remaining = (0..<count).filter { !valid.contains($0) }
+        let target = min(max(destination, 0), count)
+        let insertAt = target - valid.filter { $0 < target }.count
+        remaining.insert(contentsOf: moving, at: insertAt)
+        return remaining
+    }
+
+    /// Heading of a part on the service page: "Sermon", "Bible class", or the song type.
+    static func partHeading(kind: ServicePartKind, songType: SongType) -> String {
+        switch kind {
+        case .sermon: return "Sermon"
+        case .bibleClass: return "Bible class"
+        case .song: return SongLibraryLogic.typeName(songType)
+        }
+    }
+}

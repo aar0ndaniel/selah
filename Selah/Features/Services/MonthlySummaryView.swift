@@ -5,15 +5,24 @@ extension ServiceSnapshot {
     /// Copies the values the summary needs out of a SwiftData object.
     @MainActor
     init(_ service: Service) {
+        let parts = service.orderedParts.filter { $0.hasContent }
+        func talks(_ kind: ServicePartKind) -> [TalkSnapshot] {
+            parts.filter { $0.kind == kind }.map { TalkSnapshot(title: $0.title, person: $0.person) }
+        }
         self.init(
             date: service.date,
             gatheringName: service.gatheringName,
-            sermonTitle: service.sermonTitle,
-            sermonist: service.sermonist,
-            classLesson: service.classLesson,
-            classTeacher: service.classTeacher,
-            verseBooks: service.verses.map { $0.book },
-            songs: service.songs.map { SongSnapshot(hymnNumber: $0.hymnNumber, title: $0.title) }
+            sermons: talks(.sermon),
+            classes: talks(.bibleClass),
+            verseBooks: parts.flatMap { $0.verses.map { $0.book } },
+            songs: parts.filter { $0.kind == .song }.map { part in
+                // A song typed with only a number still shows its library title.
+                let title = part.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                return SongSnapshot(
+                    hymnNumber: part.songType == .hymn ? part.hymnNumber : "",
+                    title: title.isEmpty ? (part.librarySong?.title ?? "") : title
+                )
+            }
         )
     }
 }

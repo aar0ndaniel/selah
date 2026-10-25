@@ -77,7 +77,7 @@ struct ServicesView: View {
             }
             Button("Cancel", role: .cancel) { serviceToDelete = nil }
         } message: { _ in
-            Text("Its sermon, class notes and songs will be deleted too.")
+            Text("Its sermons, Bible classes and songs will be deleted too. Songs stay in your song library.")
         }
         .onChange(of: router.pendingAction) { _, _ in
             handlePendingAction()
@@ -248,10 +248,9 @@ struct ServicesView: View {
     private func serviceRow(_ service: Service) -> some View {
         let name = service.gatheringName.isEmpty ? "Service" : service.gatheringName
         let tone = ServicesLogic.gatheringTone(name)
-        let hasClass = !service.classLesson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !service.classTeacher.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let isFavourite = service.sermonFavourite || service.classFavourite
-        let sermonTitle = service.sermonTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasClass = service.hasBibleClass
+        let isFavourite = service.hasFavouritePart
+        let headline = ServicesLogic.headline(parts: service.orderedParts.map { $0.summary })
 
         return Button {
             openService = service
@@ -261,12 +260,12 @@ struct ServicesView: View {
                     DateBadge(date: service.date, tone: tone)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                            Text(sermonTitle.isEmpty ? "No sermon title yet" : sermonTitle)
+                            Text(headline?.title ?? name)
                                 .font(.selahHeadline)
-                                .foregroundStyle(sermonTitle.isEmpty ? Color.secondary : Color.primary)
+                                .foregroundStyle(.primary)
                                 .multilineTextAlignment(.leading)
-                            if !service.sermonist.isEmpty {
-                                Text(service.sermonist)
+                            if let detail = headline?.detail, !detail.isEmpty {
+                                Text(detail)
                                     .font(.selahLabel)
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.leading)
@@ -285,7 +284,7 @@ struct ServicesView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(rowLabel(for: service, hasClass: hasClass, isFavourite: isFavourite))
+        .accessibilityLabel(rowLabel(for: service, headline: headline, hasClass: hasClass, isFavourite: isFavourite))
         .accessibilityHint("Opens this service")
         .accessibilityAddTraits(.isButton)
         .swipeActions(edge: .trailing) {
@@ -317,11 +316,13 @@ struct ServicesView: View {
         }
     }
 
-    private func rowLabel(for service: Service, hasClass: Bool, isFavourite: Bool) -> String {
+    private func rowLabel(for service: Service, headline: ServiceHeadline?, hasClass: Bool, isFavourite: Bool) -> String {
         var parts = [service.gatheringName.isEmpty ? "Service" : service.gatheringName]
         parts.append(service.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-        if !service.sermonTitle.isEmpty { parts.append(service.sermonTitle) }
-        if !service.sermonist.isEmpty { parts.append(service.sermonist) }
+        if let headline {
+            parts.append(headline.title)
+            if !headline.detail.isEmpty { parts.append(headline.detail) }
+        }
         if hasClass { parts.append("Bible class") }
         if isFavourite { parts.append("Favourite") }
         return parts.joined(separator: ", ")
@@ -331,8 +332,8 @@ struct ServicesView: View {
 
     @ViewBuilder
     private var favouriteSections: some View {
-        let sermons = services.filter { $0.sermonFavourite }
-        let classes = services.filter { $0.classFavourite }
+        let sermons = favouriteParts(.sermon)
+        let classes = favouriteParts(.bibleClass)
         if sermons.isEmpty && classes.isEmpty {
             Section {
                 EmptyState(
@@ -348,11 +349,11 @@ struct ServicesView: View {
         } else {
             if !sermons.isEmpty {
                 Section {
-                    ForEach(sermons) { service in
+                    ForEach(sermons) { part in
                         favouriteRow(
-                            service,
-                            title: service.sermonTitle.isEmpty ? "Untitled sermon" : service.sermonTitle,
-                            detail: service.sermonist
+                            part,
+                            title: part.title.isEmpty ? "Untitled sermon" : part.title,
+                            detail: part.person
                         )
                         .listRowInsets(cardRowInsets)
                         .listRowBackground(Color.clear)
@@ -364,11 +365,11 @@ struct ServicesView: View {
             }
             if !classes.isEmpty {
                 Section {
-                    ForEach(classes) { service in
+                    ForEach(classes) { part in
                         favouriteRow(
-                            service,
-                            title: service.classLesson.isEmpty ? "Untitled lesson" : service.classLesson,
-                            detail: service.classTeacher.isEmpty ? "" : "Taught by \(service.classTeacher)"
+                            part,
+                            title: part.title.isEmpty ? "Untitled lesson" : part.title,
+                            detail: part.person.isEmpty ? "" : "Taught by \(part.person)"
                         )
                         .listRowInsets(cardRowInsets)
                         .listRowBackground(Color.clear)
@@ -381,6 +382,13 @@ struct ServicesView: View {
         }
     }
 
+    /// Starred sermons or Bible classes across all services, newest service first, in page order within a service.
+    private func favouriteParts(_ kind: ServicePartKind) -> [ServicePart] {
+        services.flatMap { service in
+            service.orderedParts(of: kind).filter { $0.isFavourite }
+        }
+    }
+
     private func favouriteHeader(_ title: String) -> some View {
         Text(title)
             .font(.selahHeadline)
@@ -389,16 +397,18 @@ struct ServicesView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    private func favouriteRow(_ service: Service, title: String, detail: String) -> some View {
-        let name = service.gatheringName.isEmpty ? "Service" : service.gatheringName
+    private func favouriteRow(_ part: ServicePart, title: String, detail: String) -> some View {
+        let service = part.service
+        let name = (service?.gatheringName).flatMap { $0.isEmpty ? nil : $0 } ?? "Service"
         let tone = ServicesLogic.gatheringTone(name)
-        let dateLabel = service.date.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
+        let date = service?.date ?? part.createdAt
+        let dateLabel = date.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
         return Button {
             openService = service
         } label: {
             SurfaceCard {
                 HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                    DateBadge(date: service.date, tone: tone)
+                    DateBadge(date: date, tone: tone)
                     VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(title)
                             .font(.selahHeadline)
@@ -467,6 +477,8 @@ struct ServicesView: View {
 
     private func createService(named name: String) {
         let service = Service(date: Date(), gatheringName: name)
+        // Recorded with parts from the start: nothing for the launch migration to do.
+        service.partsMigrated = true
         modelContext.insert(service)
         openService = service
     }

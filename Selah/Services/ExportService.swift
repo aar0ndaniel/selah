@@ -3,15 +3,25 @@ import UIKit
 
 // MARK: - Value snapshots (no SwiftData objects, so the builders are easy to test)
 
-/// One service, copied out of SwiftData, with the verses grouped by part.
+/// One sermon or Bible class of a service, with its verses.
+struct TalkExportItem: Sendable, Equatable {
+    var title: String
+    var person: String
+    var verses: [String]
+
+    init(title: String = "", person: String = "", verses: [String] = []) {
+        self.title = title
+        self.person = person
+        self.verses = verses
+    }
+}
+
+/// One service, copied out of SwiftData: its sermons and Bible classes in order, each with its verses.
+/// The single sermon/class arguments are a shorthand for one of each (kept when the title or person is filled in).
 struct ServiceExportItem: Sendable, Equatable {
     var date: Date
-    var sermonTitle: String
-    var sermonist: String
-    var classLesson: String
-    var classTeacher: String
-    var sermonVerses: [String]
-    var classVerses: [String]
+    var sermons: [TalkExportItem]
+    var classes: [TalkExportItem]
 
     init(
         date: Date,
@@ -20,19 +30,25 @@ struct ServiceExportItem: Sendable, Equatable {
         classLesson: String = "",
         classTeacher: String = "",
         sermonVerses: [String] = [],
-        classVerses: [String] = []
+        classVerses: [String] = [],
+        sermons: [TalkExportItem] = [],
+        classes: [TalkExportItem] = []
     ) {
         self.date = date
-        self.sermonTitle = sermonTitle
-        self.sermonist = sermonist
-        self.classLesson = classLesson
-        self.classTeacher = classTeacher
-        self.sermonVerses = sermonVerses
-        self.classVerses = classVerses
+        var firstSermons: [TalkExportItem] = []
+        if !sermonTitle.exportTrimmed.isEmpty || !sermonist.exportTrimmed.isEmpty {
+            firstSermons.append(TalkExportItem(title: sermonTitle, person: sermonist, verses: sermonVerses))
+        }
+        var firstClasses: [TalkExportItem] = []
+        if !classLesson.exportTrimmed.isEmpty || !classTeacher.exportTrimmed.isEmpty {
+            firstClasses.append(TalkExportItem(title: classLesson, person: classTeacher, verses: classVerses))
+        }
+        self.sermons = firstSermons + sermons
+        self.classes = firstClasses + classes
     }
 
-    var hasSermon: Bool { !sermonTitle.exportTrimmed.isEmpty || !sermonist.exportTrimmed.isEmpty }
-    var hasClass: Bool { !classLesson.exportTrimmed.isEmpty || !classTeacher.exportTrimmed.isEmpty }
+    var hasSermon: Bool { !sermons.isEmpty }
+    var hasClass: Bool { !classes.isEmpty }
 }
 
 /// A highlighted passage and the comment written on it.
@@ -89,15 +105,13 @@ struct BookExportItem: Sendable, Equatable {
 extension ServiceExportItem {
     @MainActor
     init(_ service: Service) {
-        self.init(
-            date: service.date,
-            sermonTitle: service.sermonTitle,
-            sermonist: service.sermonist,
-            classLesson: service.classLesson,
-            classTeacher: service.classTeacher,
-            sermonVerses: service.verses.filter { $0.part == .sermon }.map { $0.reference },
-            classVerses: service.verses.filter { $0.part == .bibleClass }.map { $0.reference }
-        )
+        let parts = service.orderedParts.filter { $0.hasContent }
+        func talks(_ kind: ServicePartKind) -> [TalkExportItem] {
+            parts.filter { $0.kind == kind }.map { part in
+                TalkExportItem(title: part.title, person: part.person, verses: part.verses.map { $0.reference })
+            }
+        }
+        self.init(date: service.date, sermons: talks(.sermon), classes: talks(.bibleClass))
     }
 }
 
@@ -233,33 +247,33 @@ enum ExportService {
             .filter { calendar.isDate($0.date, equalTo: summary.monthStart, toGranularity: .month) }
             .sorted { $0.date < $1.date }
 
-        let sermons = inMonth.filter { $0.hasSermon }
+        let sermons = inMonth.flatMap { service in service.sermons.map { (date: service.date, talk: $0) } }
         if !sermons.isEmpty {
             blocks.append(.heading("Sermons"))
             for item in sermons {
-                let title = item.sermonTitle.exportTrimmed.isEmpty ? "Untitled sermon" : item.sermonTitle.exportTrimmed
+                let title = item.talk.title.exportTrimmed.isEmpty ? "Untitled sermon" : item.talk.title.exportTrimmed
                 var line = title
-                if !item.sermonist.exportTrimmed.isEmpty { line += " — \(item.sermonist.exportTrimmed)" }
+                if !item.talk.person.exportTrimmed.isEmpty { line += " — \(item.talk.person.exportTrimmed)" }
                 blocks.append(.label(line))
                 blocks.append(.body(dayText(item.date, calendar: calendar, locale: locale)))
-                if !item.sermonVerses.isEmpty {
-                    blocks.append(.body("Verses: " + item.sermonVerses.joined(separator: "; ")))
+                if !item.talk.verses.isEmpty {
+                    blocks.append(.body("Verses: " + item.talk.verses.joined(separator: "; ")))
                 }
                 blocks.append(.gap)
             }
         }
 
-        let classes = inMonth.filter { $0.hasClass }
+        let classes = inMonth.flatMap { service in service.classes.map { (date: service.date, talk: $0) } }
         if !classes.isEmpty {
             blocks.append(.heading("Bible classes"))
             for item in classes {
-                let lesson = item.classLesson.exportTrimmed.isEmpty ? "Bible class" : item.classLesson.exportTrimmed
+                let lesson = item.talk.title.exportTrimmed.isEmpty ? "Bible class" : item.talk.title.exportTrimmed
                 var line = lesson
-                if !item.classTeacher.exportTrimmed.isEmpty { line += " — taught by \(item.classTeacher.exportTrimmed)" }
+                if !item.talk.person.exportTrimmed.isEmpty { line += " — taught by \(item.talk.person.exportTrimmed)" }
                 blocks.append(.label(line))
                 blocks.append(.body(dayText(item.date, calendar: calendar, locale: locale)))
-                if !item.classVerses.isEmpty {
-                    blocks.append(.body("Verses: " + item.classVerses.joined(separator: "; ")))
+                if !item.talk.verses.isEmpty {
+                    blocks.append(.body("Verses: " + item.talk.verses.joined(separator: "; ")))
                 }
                 blocks.append(.gap)
             }
