@@ -51,6 +51,8 @@ final class AppRouter {
     var selectedTab: AppTab = .today
     /// Set by the + button; the feature view for that tab handles it and clears it.
     var pendingAction: PlusAction?
+    /// Set by the mood row on Today; RootTabView presents the check-in and clears it.
+    var moodCheckInRequested = false
 
     /// True while the keyboard is up. The + button steps aside because it would sit on top of the keyboard.
     var keyboardVisible = false

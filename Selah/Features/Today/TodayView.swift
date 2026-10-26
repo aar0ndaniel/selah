@@ -39,6 +39,7 @@ struct TodayView: View {
     @Query(sort: \Service.date, order: .reverse) private var services: [Service]
     @Query(sort: \PersonalNote.updatedAt, order: .reverse) private var personalNotes: [PersonalNote]
     @Query private var meetingDays: [MeetingDay]
+    @Query(sort: \MoodEntry.date, order: .reverse) private var moodEntries: [MoodEntry]
 
     @State private var cover: TodayCover?
     @State private var showVersePicker = false
@@ -46,7 +47,8 @@ struct TodayView: View {
     @State private var openNote: PersonalNote?
 
     @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 76
-    @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 68
+    @ScaledMetric(relativeTo: .body) private var mascotTileSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var mascotWaveSize: CGFloat = 72
     @State private var heatmapYear = Calendar.current.component(.year, from: Date())
 
     /// Which streak Today shows; chosen in Settings.
@@ -104,7 +106,10 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    header(now: now)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        header(now: now)
+                        moodRow
+                    }
                     if quiet.isQuietTimeOn {
                         QuietTimeBanner(onEnd: { quiet.endQuietTime() })
                             .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
@@ -112,6 +117,7 @@ struct TodayView: View {
                     StreakSection(
                         kind: streakKind,
                         summary: Streaks.summary(input, today: now),
+                        input: input,
                         today: now,
                         isActive: streaksAreVisible
                     )
@@ -176,6 +182,40 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    // MARK: Mood
+
+    private var todayMood: MascotMood? {
+        moodEntries.first { Calendar.current.isDateInToday($0.date) }?.mood
+    }
+
+    /// A small row under the greeting: the mascot wearing today's mood, and a tap to change it.
+    private var moodRow: some View {
+        let mood = todayMood
+        let text = MoodCheckInLogic.todayRowText(for: mood)
+        return Button {
+            router.moodCheckInRequested = true
+        } label: {
+            HStack(spacing: Theme.Spacing.xs) {
+                MascotView(mood: mood, animated: false)
+                    .frame(width: 32, height: 32)
+                Text(text)
+                    .font(.selahLabel.weight(.semibold))
+                    .foregroundStyle(Theme.brandInk)
+                PIconView(.caretRight, size: 12, relativeTo: .footnote)
+                    .foregroundStyle(Theme.brandInk)
+            }
+            .padding(.leading, Theme.Spacing.xxs)
+            .padding(.trailing, Theme.Spacing.s)
+            .frame(minHeight: Theme.minTapTarget)
+            .background(Theme.brandFill, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
+        .accessibilityHint(mood == nil ? "Opens the daily check-in" : "Opens the check-in to change it")
+        .accessibilityIdentifier("mood-row")
     }
 
     // MARK: Verse of the day
@@ -407,32 +447,32 @@ struct TodayView: View {
         return ToneCard(tone: tone) {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 HStack(alignment: .center, spacing: Theme.Spacing.m) {
-                    // Calendar badge: weekday over day number.
-                    VStack(spacing: 0) {
-                        Text(next.date.formatted(.dateTime.weekday(.abbreviated)))
-                            .font(.selahLabelSmall.weight(.bold))
-                            .textCase(.uppercase)
-                            .tracking(0.8)
-                            .foregroundStyle(Tone.coral.ink)
-                        Text(next.date.formatted(.dateTime.day()))
-                            .font(.selahStat)
-                            .foregroundStyle(.primary)
-                    }
-                    .frame(width: badgeSize, height: badgeSize)
-                    .background(
-                        Color(.systemBackground).opacity(0.7),
-                        in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                    )
-                    .accessibilityHidden(true)
+                    if next.isToday {
+                        // The day itself: the mascot waves hello.
+                        MascotView(activity: .waving)
+                            .frame(width: mascotWaveSize, height: mascotWaveSize)
+                            .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text(next.name)
+                        Text("Today \u{00B7} \(next.name) \(timeText)")
                             .font(.selahCardTitle)
                             .foregroundStyle(.primary)
-                        OnCardPill(text: timeText, icon: .clock, tone: tone)
-                        Text(countdown)
-                            .font(.selahLabel.weight(.semibold))
-                            .foregroundStyle(tone.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        MascotTile(activity: .neutral, size: mascotTileSize)
+
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            Text(next.name)
+                                .font(.selahCardTitle)
+                                .foregroundStyle(.primary)
+                            OnCardPill(
+                                text: "\(next.date.formatted(.dateTime.weekday(.wide))) \u{00B7} \(timeText)",
+                                icon: .clock,
+                                tone: tone
+                            )
+                            Text(countdown)
+                                .font(.selahLabel.weight(.semibold))
+                                .foregroundStyle(tone.ink)
+                        }
                     }
                     Spacer(minLength: 0)
                 }

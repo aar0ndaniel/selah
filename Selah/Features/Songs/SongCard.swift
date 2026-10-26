@@ -36,25 +36,25 @@ enum SongsStyle {
     }
 }
 
-/// A song as a card in the Songs list (same shape as `NoteCard`): a tone tile with a music glyph, the title in
-/// Space Grotesk, an optional first line of the lyrics, and small meta pills.
+/// A song as a card in the Songs list: the mascot with a headset, the title on one line (cut short when too
+/// long; the full title is on the song page), and one row of pills: the type ("Hymn 212", "Chorus", "Worship")
+/// and "Lyrics" when the song has lyrics.
 struct SongCard: View {
     let title: String
     let type: SongType
     let hymnNumber: String
-    let timesSung: Int
     let hasLyrics: Bool
-    var firstLine: String? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 56
 
     private let radius: CGFloat = 18
 
-    private var tone: TileTone { SongsStyle.tone(for: type) }
-
     private var number: String {
         type == .hymn ? hymnNumber.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+    }
+
+    private var typeText: String {
+        number.isEmpty ? SongsStyle.name(for: type) : "Hymn \(number)"
     }
 
     private var shownTitle: String {
@@ -62,51 +62,22 @@ struct SongCard: View {
         return trimmed.isEmpty ? "Untitled song" : trimmed
     }
 
-    private var layout: AnyLayout {
-        typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.s))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.s))
-    }
-
-    private var side: CGFloat {
-        typeSize.isAccessibilitySize ? 48 : min(tileSize, 72)
-    }
+    private var tileSide: CGFloat { typeSize.isAccessibilitySize ? 48 : 56 }
 
     var body: some View {
-        layout {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(tone.fill)
-                .frame(width: side, height: side)
-                .overlay {
-                    PIconView(.musicNotes, size: 26, relativeTo: .body)
-                        .foregroundStyle(tone.ink)
-                }
+        HStack(alignment: .center, spacing: Theme.Spacing.s) {
+            MascotTile(activity: .headset, size: tileSide)
 
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(shownTitle)
                     .font(.selahCardTitle)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-
-                if let firstLine, !firstLine.isEmpty {
-                    // Primary at 70% stays above 4.5:1 on the card (same as note snippets).
-                    Text(firstLine)
-                        .font(.selahLabel)
-                        .foregroundStyle(.primary.opacity(0.7))
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(1)
-                }
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 PillFlowLayout(spacing: Theme.Spacing.xs) {
-                    if !number.isEmpty {
-                        SelahPill("Hymn \(number)", style: .neutral)
-                    } else {
-                        SelahPill(SongsStyle.name(for: type), style: .neutral)
-                    }
-                    if timesSung > 0 {
-                        SelahPill("Sung \(timesSung)\u{00D7}", icon: .calendarCheck, style: .neutral)
-                    }
+                    SelahPill(typeText, style: .neutral)
                     if hasLyrics {
                         SelahPill("Lyrics", icon: .textAlignLeft, style: .soft(.sage))
                     }
@@ -123,12 +94,9 @@ struct SongCard: View {
 
 #Preview("Song cards") {
     VStack(spacing: Theme.Spacing.s) {
-        SongCard(
-            title: "Blessed assurance", type: .hymn, hymnNumber: "245", timesSung: 3, hasLyrics: true,
-            firstLine: "Blessed assurance, Jesus is mine!"
-        )
-        SongCard(title: "This is the day", type: .chorus, hymnNumber: "", timesSung: 1, hasLyrics: false)
-        SongCard(title: "Alpha and Omega", type: .worship, hymnNumber: "", timesSung: 0, hasLyrics: true)
+        SongCard(title: "Blessed assurance", type: .hymn, hymnNumber: "245", hasLyrics: true)
+        SongCard(title: "This is the day that the Lord has made, we will rejoice and be glad in it", type: .chorus, hymnNumber: "", hasLyrics: false)
+        SongCard(title: "Alpha and Omega", type: .worship, hymnNumber: "", hasLyrics: true)
     }
     .padding(Theme.Spacing.m)
 }

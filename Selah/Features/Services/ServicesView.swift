@@ -248,7 +248,6 @@ struct ServicesView: View {
     private func serviceRow(_ service: Service) -> some View {
         let name = service.gatheringName.isEmpty ? "Service" : service.gatheringName
         let tone = ServicesLogic.gatheringTone(name)
-        let hasClass = service.hasBibleClass
         let isFavourite = service.hasFavouritePart
         let headline = ServicesLogic.headline(parts: service.orderedParts.map { $0.summary })
 
@@ -256,22 +255,22 @@ struct ServicesView: View {
             openService = service
         } label: {
             SurfaceCard {
-                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                HStack(alignment: .center, spacing: Theme.Spacing.s) {
                     DateBadge(date: service.date, tone: tone)
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                            Text(headline?.title ?? name)
-                                .font(.selahHeadline)
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.leading)
-                            if let detail = headline?.detail, !detail.isEmpty {
-                                Text(detail)
-                                    .font(.selahLabel)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.leading)
-                            }
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                        // The service name stays on one line; a long one is cut short with an ellipsis.
+                        Text(name)
+                            .font(.selahHeadline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if let title = headline?.title, !title.isEmpty {
+                            Text(title)
+                                .font(.selahLabel)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
-                        pills(name: name, tone: tone, hasClass: hasClass)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     if isFavourite {
@@ -284,7 +283,7 @@ struct ServicesView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(rowLabel(for: service, headline: headline, hasClass: hasClass, isFavourite: isFavourite))
+        .accessibilityLabel(rowLabel(for: service, headline: headline, isFavourite: isFavourite))
         .accessibilityHint("Opens this service")
         .accessibilityAddTraits(.isButton)
         .swipeActions(edge: .trailing) {
@@ -303,27 +302,13 @@ struct ServicesView: View {
         }
     }
 
-    /// Gathering pill, plus "Bible class" when the service has one. Stacks at accessibility sizes.
-    private func pills(name: String, tone: Tone, hasClass: Bool) -> some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
-            : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
-        return layout {
-            Pill(text: name, tone: tone)
-            if hasClass {
-                Pill(text: "Bible class", icon: .book, tone: .sage)
-            }
-        }
-    }
-
-    private func rowLabel(for service: Service, headline: ServiceHeadline?, hasClass: Bool, isFavourite: Bool) -> String {
+    private func rowLabel(for service: Service, headline: ServiceHeadline?, isFavourite: Bool) -> String {
         var parts = [service.gatheringName.isEmpty ? "Service" : service.gatheringName]
         parts.append(service.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
         if let headline {
             parts.append(headline.title)
             if !headline.detail.isEmpty { parts.append(headline.detail) }
         }
-        if hasClass { parts.append("Bible class") }
         if isFavourite { parts.append("Favourite") }
         return parts.joined(separator: ", ")
     }

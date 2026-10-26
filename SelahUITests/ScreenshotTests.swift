@@ -7,6 +7,7 @@ import XCTest
 ///   -uiTestSampleData   in-memory store with sample content, onboarding done
 ///   -uiTestOnboarding   empty in-memory store, shows first-launch onboarding
 ///   -uiTestDark         forces dark mode
+///   -uiTestMood         lets the daily mood check-in appear (otherwise it is skipped in test launches)
 ///
 /// Each screen is its own test (its own launch) so one broken screen does not hide the others.
 final class ScreenshotTests: XCTestCase {
@@ -97,6 +98,16 @@ final class ScreenshotTests: XCTestCase {
         let app = launchApp()
         openTab(app, .songs)
         snap(app, "10-songs-light")
+    }
+
+    /// The daily mood check-in. `-uiTestMood` lets it appear (the sample data has no entry for today).
+    @MainActor
+    func test11MoodLight() {
+        let app = launchApp(extra: ["-uiTestMood"])
+        let title = app.descendants(matching: .any).matching(identifier: "mood-title").firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 15), "The mood check-in did not appear")
+        settle()
+        snap(app, "11-mood-light")
     }
 
     /// Opens the first song that has lyrics, then its practice view.

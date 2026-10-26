@@ -15,7 +15,6 @@ struct NoteCard: View {
     @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 72
 
-    private var tone: Tone { item.colour.tone }
     private let radius: CGFloat = 18
 
     private var snippetText: Text? {
@@ -26,11 +25,11 @@ struct NoteCard: View {
         return Text(item.snippet)
     }
 
-    private var tileIcon: PIcon {
+    private var tileActivity: MascotActivity {
         switch item.kind {
-        case .study: return .bookOpen
-        case .service: return .church
-        case .personal: return .notePencil
+        case .study: return .reading
+        case .service: return .praying
+        case .personal: return .writing
         }
     }
 
@@ -101,19 +100,9 @@ struct NoteCard: View {
         typeSize.isAccessibilitySize ? 56 : min(tileSize, 96)
     }
 
-    /// Light: the tone's pale fill with a touch of its ink. Dark: the raised grey with the tone at about 22%.
+    /// The mascot tile: study reads, service prays, personal writes. Pinned notes keep the pin badge.
     private var tile: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(tone.pillFill)
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(colorScheme == .dark ? tone.swatch.opacity(0.22) : tone.ink.opacity(0.10))
-            }
-            .frame(width: side, height: side)
-            .overlay {
-                PIconView(tileIcon, size: 30, relativeTo: .body)
-                    .foregroundStyle(tone.ink)
-            }
+        MascotTile(activity: tileActivity, size: side)
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
                     // Push-pin badge.

@@ -112,19 +112,9 @@ struct SongsView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 } else if sort == .alphabetical {
-                    ForEach(sections, id: \.letter) { section in
-                        Section {
-                            ForEach(section.indices.map { songs[$0] }) { song in
-                                row(for: song, trailing: trailing)
-                            }
-                        } header: {
-                            Text(section.letter)
-                                .font(.selahCardTitle)
-                                .foregroundStyle(Theme.accent)
-                                .textCase(nil)
-                                .accessibilityAddTraits(.isHeader)
-                        }
-                        .listSectionSeparator(.hidden)
+                    // A flat list: the letter strip at the edge does the jumping.
+                    ForEach(order.map { songs[$0] }) { song in
+                        row(for: song, trailing: trailing)
                     }
                 } else {
                     ForEach(order.map { songs[$0] }) { song in
@@ -137,7 +127,10 @@ struct SongsView: View {
             .contentMargins(.bottom, Theme.Spacing.plusButtonClearance, for: .scrollContent)
             .overlay(alignment: .trailing) {
                 if showIndex {
-                    SongsIndexStrip(letters: sections.map { $0.letter }) { letter in
+                    SongsIndexStrip(
+                        letters: SongsIndexStrip.alphabet,
+                        enabled: Set(sections.map { $0.letter })
+                    ) { letter in
                         guard let first = sections.first(where: { $0.letter == letter })?.indices.first else { return }
                         proxy.scrollTo(songs[first].persistentModelID, anchor: .top)
                     }
@@ -220,9 +213,7 @@ struct SongsView: View {
                 title: song.title,
                 type: song.songType,
                 hymnNumber: song.hymnNumber,
-                timesSung: song.timesSung,
-                hasLyrics: song.hasLyrics,
-                firstLine: SongsLogic.firstLine(verses: song.lyricVerses, refrain: song.refrain)
+                hasLyrics: song.hasLyrics
             )
         }
         .buttonStyle(.plain)
@@ -292,21 +283,33 @@ struct SongsView: View {
 
 // MARK: - Letter index
 
-/// The A to Z strip at the right edge, like Contacts. Tap or drag to jump to a letter. Hidden from VoiceOver:
-/// the section headers already let it jump by heading.
+/// The A to Z strip at the right edge, like Contacts. Tap or drag to jump to the first song with that letter.
+/// Letters with no songs are dimmed and skipped. Hidden from VoiceOver (it can scroll the list directly).
 private struct SongsIndexStrip: View {
+    /// "A" to "Z", then "#" when some title starts with a digit or symbol.
+    static let alphabet: [String] = (65...90).compactMap { Unicode.Scalar($0).map { String(Character($0)) } }
+
     let letters: [String]
+    let enabled: Set<String>
     let onSelect: (String) -> Void
 
-    @ScaledMetric(relativeTo: .caption) private var slot: CGFloat = 16
+    @ScaledMetric(relativeTo: .caption) private var scaledSlot: CGFloat = 15
     @State private var current: String?
+
+    private var slot: CGFloat { min(scaledSlot, 18) }
+
+    /// A to Z, plus "#" at the end only if a song needs it.
+    private var shownLetters: [String] {
+        enabled.contains(SongsLogic.otherLetter) ? letters + [SongsLogic.otherLetter] : letters
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(letters, id: \.self) { letter in
+            ForEach(shownLetters, id: \.self) { letter in
                 Text(letter)
                     .font(.selahEyebrow)
                     .foregroundStyle(Theme.accent)
+                    .opacity(enabled.contains(letter) ? 1 : 0.3)
                     .frame(width: 24, height: slot)
             }
         }
@@ -315,12 +318,12 @@ private struct SongsIndexStrip: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     let position = Int(value.location.y / slot)
-                    guard letters.indices.contains(position) else { return }
-                    let letter = letters[position]
-                    if letter != current {
-                        current = letter
-                        onSelect(letter)
-                    }
+                    let list = shownLetters
+                    guard list.indices.contains(position) else { return }
+                    let letter = list[position]
+                    guard enabled.contains(letter), letter != current else { return }
+                    current = letter
+                    onSelect(letter)
                 }
                 .onEnded { _ in current = nil }
         )

@@ -59,7 +59,8 @@ private struct AppRoot: View {
                     LibrarySong.self,
                     PersonalNote.self,
                     VerseRef.self,
-                    NoteComment.self
+                    NoteComment.self,
+                    MoodEntry.self
                 ])
         }
     }

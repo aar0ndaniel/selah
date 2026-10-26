@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "e8a35ea0-5c2c-4b59-b6ac-e02eb035a57f",
+  "created_at": "2026-10-25T23:43:14.962Z",
+  "artifacts": [],
+  "from": "claude",
+  "to": "selah",
+  "kind": "request",
+  "subject": "Test asset",
+  "body": "A bounded, synthetic asset brief; no student data."
+}

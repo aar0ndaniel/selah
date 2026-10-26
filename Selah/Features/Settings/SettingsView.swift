@@ -57,6 +57,7 @@ private struct SettingsForm: View {
     @AppStorage(ReminderDefaults.serviceKey) private var defaultServiceReminderMinutes = ReminderDefaults.fallbackServiceMinutes
 
     @AppStorage(StreakKind.storageKey) private var todayStreakKind = StreakKind.study.rawValue
+    @AppStorage(MascotMode.storageKey) private var mascotModeRaw = MascotMode.standard.rawValue
 
     @State private var photoItem: PhotosPickerItem?
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -88,6 +89,7 @@ private struct SettingsForm: View {
             quietTimeSection
             reminderSection
             todaySection
+            mascotSection
             bibleSection
             appearanceSection
             dataSection
@@ -305,6 +307,45 @@ private struct SettingsForm: View {
         }
     }
 
+    // MARK: Mascot
+
+    private var mascotMode: MascotMode { MascotMode(storedValue: mascotModeRaw) }
+
+    private var mascotSection: some View {
+        Section {
+            Menu {
+                Picker("Mascot colour", selection: $mascotModeRaw) {
+                    ForEach(MascotMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.name).tag(mode.rawValue)
+                    }
+                }
+            } label: {
+                HStack(spacing: Theme.Spacing.s) {
+                    TileLabel(title: "Mascot colour", icon: .palette, tone: .coral)
+                    Spacer(minLength: Theme.Spacing.xs)
+                    Circle()
+                        .fill(mascotMode.swatch)
+                        .frame(width: 14, height: 14)
+                        .accessibilityHidden(true)
+                    Text(mascotMode.name)
+                        .font(.selahBody)
+                        .foregroundStyle(.secondary)
+                    PIconView(.caretDown, size: 14, relativeTo: .footnote)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(minHeight: Theme.minTapTarget)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Mascot colour")
+            .accessibilityValue(mascotMode.name)
+            .sensoryFeedback(.selection, trigger: mascotModeRaw)
+        } header: {
+            Text("Mascot")
+        } footer: {
+            Text("Your mascot and app icon follow this colour. App icons arrive with the final artwork.")
+        }
+    }
+
     // MARK: Bible
 
     private var textSizeBinding: Binding<VerseTextSize> {
@@ -511,6 +552,7 @@ private struct SettingsForm: View {
         deleteAll(Song.self)
         deleteAll(ServicePart.self)
         deleteAll(LibrarySong.self)
+        deleteAll(MoodEntry.self)
 
         // Keep the profile (and onboarded) so Selah opens straight to a clean Today.
         profile.name = ""

@@ -17,6 +17,8 @@ struct Backup: Codable, Sendable, Equatable {
     var personalNotes: [PersonalNoteDTO]
     /// The song library. Added with service parts; optional so older backups still decode.
     var librarySongs: [LibrarySongDTO]? = nil
+    /// Daily mood check-ins. Added with the mascot; optional so older backups still decode.
+    var moods: [MoodDTO]? = nil
 
     struct ProfileDTO: Codable, Sendable, Equatable {
         var name: String
@@ -138,6 +140,14 @@ struct Backup: Codable, Sendable, Equatable {
         var lastSungAt: Date?
     }
 
+    struct MoodDTO: Codable, Sendable, Equatable {
+        var date: Date
+        /// `MascotMood` raw value, kept as a string.
+        var mood: String
+        var note: String
+        var createdAt: Date
+    }
+
     struct PersonalNoteDTO: Codable, Sendable, Equatable {
         var title: String
         var bodyData: Data
@@ -203,6 +213,12 @@ enum BackupService {
                 if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
                 return lhs.title < rhs.title
             }
+        let moods = try context.fetch(FetchDescriptor<MoodEntry>())
+            .sorted { lhs, rhs in
+                if lhs.date != rhs.date { return lhs.date < rhs.date }
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.moodRaw < rhs.moodRaw
+            }
         var libraryIndex: [PersistentIdentifier: Int] = [:]
         for (index, song) in library.enumerated() {
             libraryIndex[song.persistentModelID] = index
@@ -218,7 +234,8 @@ enum BackupService {
             plans: plans.sorted { $0.bookName < $1.bookName }.map(planDTO),
             services: services.sorted { $0.date < $1.date }.map { serviceDTO($0, libraryIndex: libraryIndex) },
             personalNotes: notes.sorted { $0.updatedAt < $1.updatedAt }.map(noteDTO),
-            librarySongs: library.map(librarySongDTO)
+            librarySongs: library.map(librarySongDTO),
+            moods: moods.map(moodDTO)
         )
     }
 
@@ -312,6 +329,7 @@ enum BackupService {
         try deleteAll(Song.self, in: context)
         try deleteAll(ServicePart.self, in: context)
         try deleteAll(LibrarySong.self, in: context)
+        try deleteAll(MoodEntry.self, in: context)
         try context.save()
     }
 
@@ -491,6 +509,13 @@ enum BackupService {
                 note.comments.append(comment)
             }
         }
+
+        for dto in backup.moods ?? [] {
+            let entry = MoodEntry(date: dto.date, mood: .peaceful, note: dto.note, createdAt: dto.createdAt)
+            // Keep the stored value as it was, even if this version does not know the mood.
+            entry.moodRaw = dto.mood
+            context.insert(entry)
+        }
         return counts
     }
 
@@ -644,6 +669,10 @@ enum BackupService {
             createdAt: song.createdAt,
             lastSungAt: song.lastSungAt
         )
+    }
+
+    private static func moodDTO(_ entry: MoodEntry) -> Backup.MoodDTO {
+        Backup.MoodDTO(date: entry.date, mood: entry.moodRaw, note: entry.note, createdAt: entry.createdAt)
     }
 
     private static func noteDTO(_ note: PersonalNote) -> Backup.PersonalNoteDTO {

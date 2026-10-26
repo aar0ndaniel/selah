@@ -8,6 +8,11 @@ import SwiftUI
 ///
 /// Reduce Motion shows a still flame. Animation pauses when the app is not active or the view is off screen.
 struct StreakFlame: View {
+    /// `.badge` is the red flame for the small dark disc; `.hero` is the hot pink to coral flame of `StreakHero`
+    /// (no embers of its own: the hero draws floating embers around it).
+    enum Palette { case badge, hero }
+
+    var palette: Palette = .badge
     /// True while the streak has just gone up: the flame grows and brightens briefly.
     var flared: Bool = false
 
@@ -20,8 +25,10 @@ struct StreakFlame: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: paused)) { timeline in
             let time: Double = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            let layers: [Layer] = palette == .hero ? Self.heroLayers : Self.layers
+            let embers: Bool = !reduceMotion && palette == .badge
             Canvas { context, size in
-                Self.draw(&context, size: size, time: time, showEmbers: !reduceMotion)
+                Self.draw(&context, size: size, time: time, layers: layers, showEmbers: embers)
             }
         }
         .aspectRatio(0.8, contentMode: .fit)
@@ -61,6 +68,19 @@ struct StreakFlame: View {
               breathe: 7.7, sway: 5.7, phase: 3.1, swayAmount: 0.09)
     ]
 
+    /// Hero flame: coral at the tip to hot pink at the base, with a pale pink core. No yellow, no purple.
+    private static let heroLayers: [Layer] = [
+        Layer(widthFactor: 1.0, heightFactor: 1.0,
+              colours: [Color(red: 1.0, green: 0.48, blue: 0.50), Color(red: 1.0, green: 0.31, blue: 0.51)],
+              breathe: 5.1, sway: 3.1, phase: 0.0, swayAmount: 0.14),
+        Layer(widthFactor: 0.72, heightFactor: 0.78,
+              colours: [Color(red: 1.0, green: 0.62, blue: 0.62), Color(red: 1.0, green: 0.40, blue: 0.56)],
+              breathe: 6.3, sway: 4.3, phase: 1.7, swayAmount: 0.12),
+        Layer(widthFactor: 0.42, heightFactor: 0.52,
+              colours: [Color(red: 1.0, green: 0.78, blue: 0.80), Color(red: 1.0, green: 0.90, blue: 0.92)],
+              breathe: 7.7, sway: 5.7, phase: 3.1, swayAmount: 0.09)
+    ]
+
     private static func tongue(in rect: CGRect, sway: CGFloat) -> Path {
         var path = Path()
         let top = rect.minY
@@ -83,7 +103,9 @@ struct StreakFlame: View {
         return path
     }
 
-    private static func draw(_ context: inout GraphicsContext, size: CGSize, time: Double, showEmbers: Bool) {
+    private static func draw(
+        _ context: inout GraphicsContext, size: CGSize, time: Double, layers: [Layer], showEmbers: Bool
+    ) {
         let baseWidth = size.width * 0.78
         let baseHeight = size.height * 0.88
         let bottom = size.height

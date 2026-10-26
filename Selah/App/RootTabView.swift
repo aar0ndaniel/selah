@@ -16,9 +16,22 @@ import UIKit
 ///   as a tab and would change the selection. Not `tabViewBottomAccessory` either: that is a mini-player strip.
 /// - The tabs are Today, Study, Services, Notes and Songs. Search lives inside Notes (notes and verses) and Songs
 ///   (titles, numbers and lyrics) as a `.searchable` drawer, not as a tab.
+/// What `RootTabView`'s full-screen cover can show.
+private enum RootCover: String, Identifiable {
+    case onboarding
+    case mood
+
+    var id: String { rawValue }
+}
+
 struct RootTabView: View {
     @State private var router = AppRouter()
     @Query private var profiles: [UserProfile]
+    @Query(sort: \MoodEntry.date, order: .reverse) private var moodEntries: [MoodEntry]
+    @AppStorage(MoodCheckInLogic.skippedKey) private var moodSkippedAt: Double = 0
+    /// The daily check-in is on screen (or about to be).
+    @State private var showMood = false
+    private let launch = LaunchOptions.current
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     /// Shared with the App Intents (they run in this process). Reading `pending` in `body` makes SwiftUI observe it.
@@ -34,11 +47,34 @@ struct RootTabView: View {
     private var appearance: ColorScheme? { forcedScheme ?? profiles.first?.appearance.colorScheme }
 
     /// First launch: no profile yet, or onboarding not finished.
-    private var showOnboarding: Binding<Bool> {
+    private var onboardingDone: Bool { profiles.first?.onboarded == true }
+
+    /// The one full-screen cover this view owns: onboarding on first launch, otherwise the daily mood check-in.
+    /// (One `fullScreenCover` for both, so they can never fight over the presentation.)
+    private var rootCover: Binding<RootCover?> {
         Binding(
-            get: { profiles.first?.onboarded != true },
-            set: { _ in }
+            get: {
+                if !onboardingDone { return .onboarding }
+                return showMood ? .mood : nil
+            },
+            set: { newValue in
+                if newValue == nil { showMood = false }
+            }
         )
+    }
+
+    /// Shows the check-in when it is due: onboarding is done, nothing else full-screen is open, and there is no
+    /// entry for today and no "Not now" today. Test launches skip it unless they pass `-uiTestMood`.
+    private func presentMoodIfDue() {
+        guard onboardingDone, launch.allowsMoodCheckIn, !showMood else { return }
+        guard router.plusHiders.isEmpty, quiet.pending == nil else { return }
+        let skipped = launch.moodCheckIn ? nil : MoodCheckInLogic.skippedDate(from: moodSkippedAt)
+        let due = MoodCheckInLogic.isDue(
+            entryDates: moodEntries.map { $0.date },
+            skippedAt: skipped,
+            now: Date()
+        )
+        if due { showMood = true }
     }
 
     var body: some View {
@@ -80,9 +116,27 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             router.keyboardVisible = false
         }
-        .fullScreenCover(isPresented: showOnboarding) {
-            OnboardingView()
-                .preferredColorScheme(appearance)
+        .fullScreenCover(item: rootCover) { cover in
+            switch cover {
+            case .onboarding:
+                OnboardingView()
+                    .preferredColorScheme(appearance)
+            case .mood:
+                MoodCheckInView()
+                    .preferredColorScheme(appearance)
+            }
+        }
+        // Today's mood row asks for the check-in here.
+        .onChange(of: router.moodCheckInRequested) { _, requested in
+            guard requested else { return }
+            router.moodCheckInRequested = false
+            if onboardingDone { showMood = true }
+        }
+        // Right after onboarding finishes (and on first appearance) the check-in may be due.
+        .task(id: onboardingDone) {
+            guard onboardingDone else { return }
+            try? await Task.sleep(for: .milliseconds(700))
+            presentMoodIfDue()
         }
         .preferredColorScheme(appearance)
         .environment(router)
@@ -97,6 +151,7 @@ struct RootTabView: View {
                 NotificationScheduler.shared.reschedule(context: modelContext)
                 // The Selah Focus filter can ask for a page; this opens it once per Focus session.
                 quiet.consumeFocusSession()
+                presentMoodIfDue()
             }
         }
         // Quiet time hand-off from App Intents / the Focus filter. `initial: true` also catches a destination that

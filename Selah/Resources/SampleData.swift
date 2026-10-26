@@ -16,7 +16,8 @@ enum SampleData {
         LibrarySong.self,
         PersonalNote.self,
         VerseRef.self,
-        NoteComment.self
+        NoteComment.self,
+        MoodEntry.self
     ]
 
     static let container: ModelContainer = makeContainer(seeded: true)
@@ -285,6 +286,10 @@ enum SampleData {
         let n4v = verse("Psalms", 46, 1, 1, "God is our refuge and strength, a very present help in trouble.")
         context.insert(n4v)
         n4v.personalNote = n4
+
+        // Two earlier check-ins and none for today, so the daily check-in is due in a sample launch.
+        context.insert(MoodEntry(date: daysAgo(1), mood: .peaceful, note: "A quiet morning with Psalm 46."))
+        context.insert(MoodEntry(date: daysAgo(2), mood: .grateful, note: "Thankful for a good week."))
 
         try? context.save()
     }
