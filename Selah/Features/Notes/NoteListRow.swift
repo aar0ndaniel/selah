@@ -67,24 +67,11 @@ struct NoteCard: View {
                         .lineLimit(2)
                 }
 
-                PillFlowLayout(spacing: Theme.Spacing.xs) {
-                    SelahPill(
-                        "\(NotesStyle.readMinutes(wordCount: wordCount)) min",
-                        icon: .clock,
-                        style: .neutral
-                    )
-                    SelahPill(
-                        item.date.formatted(.dateTime.day().month(.abbreviated).year()),
-                        icon: .calendarBlank,
-                        style: .neutral
-                    )
-                    if highlightCount > 0 {
-                        SelahPill(
-                            highlightCount == 1 ? "1 highlight" : "\(highlightCount) highlights",
-                            icon: .highlighter,
-                            style: .soft(.mint)
-                        )
-                    }
+                // One row when the pills fit, otherwise stacked. ViewThatFits reports the real height, so the
+                // pills never spill below the card (the flow layout could size for one row, then wrap).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Spacing.xs) { pills }
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) { pills }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,6 +80,30 @@ struct NoteCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var pills: some View {
+        SelahPill(
+            "\(NotesStyle.readMinutes(wordCount: wordCount)) min",
+            icon: .clock,
+            style: .neutral
+        )
+        // Short date ("25 Oct"); the year only when it isn't this year.
+        SelahPill(
+            Calendar.current.isDate(item.date, equalTo: Date(), toGranularity: .year)
+                ? item.date.formatted(.dateTime.day().month(.abbreviated))
+                : item.date.formatted(.dateTime.day().month(.abbreviated).year()),
+            icon: .calendarBlank,
+            style: .neutral
+        )
+        if highlightCount > 0 {
+            SelahPill(
+                highlightCount == 1 ? "1 highlight" : "\(highlightCount) highlights",
+                icon: .highlighter,
+                style: .soft(.mint)
+            )
+        }
     }
 
     private var side: CGFloat {

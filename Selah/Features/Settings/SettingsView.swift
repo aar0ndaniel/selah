@@ -339,10 +339,11 @@ private struct SettingsForm: View {
             .accessibilityLabel("Mascot colour")
             .accessibilityValue(mascotMode.name)
             .sensoryFeedback(.selection, trigger: mascotModeRaw)
+            .onChange(of: mascotModeRaw) { _, _ in AppIconSwitcher.apply(mascotMode) }
         } header: {
             Text("Mascot")
         } footer: {
-            Text("Your mascot and app icon follow this colour. App icons arrive with the final artwork.")
+            Text("Your mascot and app icon follow this colour.")
         }
     }
 

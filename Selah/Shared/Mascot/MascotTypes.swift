@@ -110,8 +110,7 @@ enum MascotMode: String, CaseIterable, Codable, Sendable {
     /// A single colour for a dot or swatch that shows which mode this is.
     var swatch: Color { bodyDeep }
 
-    /// Name of the alternate app icon for this mode, or nil for the default icon. Icons arrive with the final artwork;
-    /// switching is not implemented yet.
+    /// Name of the alternate app icon for this mode (listed in project.yml), or nil for the default icon.
     var appIconName: String? {
         switch self {
         case .coral: return nil

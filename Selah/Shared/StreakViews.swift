@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Streak visuals for Today: the streak hero card (glowing flame, big number, week row) and the celebration when
 // the streak goes up.
@@ -39,6 +40,48 @@ enum StreakPalette {
     static let ink = Color(red: 0.102, green: 0.078, blue: 0.086)        // #1A1416
 }
 
+/// Card colours per appearance: a soft pink card in light mode, the deep warm-neutral card in dark mode.
+/// Light contrast on #FFEBEF (luminance about 0.87): label #C42A5C about 4.8:1, number pink #E0336B about 3.6:1
+/// (large text), black at 60% about 6:1. `faint` is black or white, used at low opacity for day cells and lines.
+struct StreakColours {
+    let cardTop: Color
+    let cardBottom: Color
+    let label: Color
+    let numberTop: Color
+    let numberBottom: Color
+    let check: Color
+    let faint: Color
+    let weekPanel: Color
+    let glow: Double
+
+    static func forScheme(_ scheme: ColorScheme) -> StreakColours {
+        if scheme == .dark {
+            return StreakColours(
+                cardTop: StreakPalette.cardTop,
+                cardBottom: StreakPalette.cardBottom,
+                label: StreakPalette.label,
+                numberTop: StreakPalette.coral,
+                numberBottom: StreakPalette.pink,
+                check: StreakPalette.check,
+                faint: .white,
+                weekPanel: Color.white.opacity(0.06),
+                glow: 0.5
+            )
+        }
+        return StreakColours(
+            cardTop: Color(red: 1.0, green: 0.945, blue: 0.953),     // #FFF1F3
+            cardBottom: Color(red: 1.0, green: 0.922, blue: 0.937),  // #FFEBEF
+            label: Color(red: 0.769, green: 0.165, blue: 0.361),     // #C42A5C
+            numberTop: Color(red: 0.941, green: 0.337, blue: 0.431), // #F0566E
+            numberBottom: Color(red: 0.878, green: 0.2, blue: 0.42), // #E0336B
+            check: Color(red: 0.878, green: 0.2, blue: 0.42),        // #E0336B
+            faint: .black,
+            weekPanel: Color.white.opacity(0.75),
+            glow: 0.32
+        )
+    }
+}
+
 // MARK: - Hero
 
 /// One day of the week row.
@@ -49,7 +92,7 @@ struct StreakWeekCell: Equatable, Sendable {
 }
 
 /// The streak as a feature card: a glowing hot pink flame with floating embers, the big number, "days streak" and
-/// the best run, then the week M to S. Always dark (light and dark mode alike).
+/// the best run, then the week M to S. A soft pink card in light mode, a deep warm-neutral card in dark mode.
 /// Change `celebration` to play the celebration (flare, bounce, particles, haptic).
 struct StreakHero: View {
     let kind: StreakKind
@@ -61,12 +104,15 @@ struct StreakHero: View {
     var celebration: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .largeTitle) private var numberSize: CGFloat = 64
     @ScaledMetric(relativeTo: .title3) private var labelSize: CGFloat = 20
     @State private var bounced = false
     @State private var burstProgress: CGFloat = 0
     @State private var showBurst = false
     @State private var flared = false
+
+    private var colours: StreakColours { .forScheme(colorScheme) }
 
     private var spokenDays: String { count == 1 ? "1 day" : "\(count) days" }
 
@@ -77,24 +123,24 @@ struct StreakHero: View {
                 numberText
                 Text("\(count == 1 ? "day" : "days") streak \u{00B7} \(kind.title)")
                     .font(.custom(SelahFontFamily.body, size: labelSize, relativeTo: .title3).weight(.semibold))
-                    .foregroundStyle(StreakPalette.label)
+                    .foregroundStyle(colours.label)
                 Text("Best \(best)")
                     .font(.selahLabel)
-                    .foregroundStyle(Color.white.opacity(0.65))
+                    .foregroundStyle(colours.faint.opacity(colorScheme == .dark ? 0.65 : 0.6))
             }
             .accessibilityHidden(true)
 
             StreakWeekRow(days: days)
                 .padding(.vertical, Theme.Spacing.s)
                 .padding(.horizontal, Theme.Spacing.xs)
-                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(colours.weekPanel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .padding(.top, Theme.Spacing.m)
         .padding([.horizontal, .bottom], Theme.Spacing.s)
         .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [StreakPalette.cardTop, StreakPalette.cardBottom],
+                colors: [colours.cardTop, colours.cardBottom],
                 startPoint: .top,
                 endPoint: .bottom
             ),
@@ -102,7 +148,7 @@ struct StreakHero: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+                .strokeBorder(colours.faint.opacity(0.06), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(kind.title) streak, \(spokenDays), best \(best)")
@@ -111,27 +157,47 @@ struct StreakHero: View {
         .sensoryFeedback(.success, trigger: celebration)
     }
 
+    /// A streak of 0 shows the grey flame with no glow or embers.
+    private var lit: Bool { count > 0 }
+
     private var flameStack: some View {
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [StreakPalette.pink.opacity(flared ? 0.65 : 0.5), StreakPalette.pink.opacity(0)],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 100
+            if lit {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [StreakPalette.pink.opacity(flared ? colours.glow + 0.15 : colours.glow), StreakPalette.pink.opacity(0)],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 100
+                        )
                     )
-                )
-                .frame(width: 210, height: 210)
-                .blur(radius: 14)
-                .offset(y: 8)
-            StreakEmbers()
-                .frame(width: 180, height: 170)
-            StreakFlame(palette: .hero, flared: flared)
-                .frame(height: 112)
-                .shadow(color: StreakPalette.pink.opacity(0.55), radius: 16)
+                    .frame(width: 210, height: 210)
+                    .blur(radius: 14)
+                    .offset(y: 8)
+                StreakEmbers()
+                    .frame(width: 180, height: 170)
+            }
+            flame
         }
         .frame(height: 160)
+    }
+
+    /// The delivered flame artwork when the asset catalog has it, otherwise the drawn flame.
+    @ViewBuilder
+    private var flame: some View {
+        if let art = UIImage(named: lit ? "StreakFlame" : "StreakFlameOff") {
+            Image(uiImage: art)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 150, height: 150)
+                .scaleEffect(flared ? 1.08 : 1)
+                .animation(.spring(duration: 0.4, bounce: 0.4), value: flared)
+        } else {
+            StreakFlame(palette: .hero, flared: flared)
+                .frame(height: 112)
+                .shadow(color: StreakPalette.pink.opacity(colorScheme == .dark ? 0.55 : 0.35), radius: 16)
+        }
     }
 
     private var numberText: some View {
@@ -139,7 +205,7 @@ struct StreakHero: View {
             .font(.custom(SelahFontFamily.display, size: numberSize, relativeTo: .largeTitle).weight(.heavy))
             .monospacedDigit()
             .foregroundStyle(
-                LinearGradient(colors: [StreakPalette.coral, StreakPalette.pink], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [colours.numberTop, colours.numberBottom], startPoint: .top, endPoint: .bottom)
             )
             .scaleEffect(bounced ? 1.2 : 1)
             .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(count)))
@@ -250,7 +316,10 @@ private struct ParticleBurst: View {
 struct StreakWeekRow: View {
     let days: [StreakWeekCell]
 
+    @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var circle: CGFloat = 32
+
+    private var colours: StreakColours { .forScheme(colorScheme) }
 
     private static let letters = ["M", "T", "W", "T", "F", "S", "S"]
 
@@ -261,7 +330,7 @@ struct StreakWeekRow: View {
                     Text(Self.letters[index % Self.letters.count])
                         .font(.selahLabel)
                         .fontWeight(day.isToday ? .bold : .regular)
-                        .foregroundStyle(Color.white.opacity(day.isToday ? 1 : 0.6))
+                        .foregroundStyle(colours.faint.opacity(day.isToday ? 1 : 0.6))
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -303,7 +372,7 @@ struct StreakWeekRow: View {
                 let width: CGFloat = CGFloat(run.length - 1) * slot + circle + 8
                 let centre: CGFloat = (CGFloat(run.start) + CGFloat(run.length) / 2) * slot
                 Capsule()
-                    .fill(StreakPalette.pink.opacity(0.28))
+                    .fill(StreakPalette.pink.opacity(colorScheme == .dark ? 0.28 : 0.18))
                     .frame(width: width, height: circle + 6)
                     .position(x: centre, y: geo.size.height / 2)
             }
@@ -331,23 +400,23 @@ struct StreakWeekRow: View {
                     }
             } else {
                 PIconView(.check, size: 16, relativeTo: .body)
-                    .foregroundStyle(StreakPalette.check)
+                    .foregroundStyle(colours.check)
                     .frame(width: circle, height: circle)
             }
         case .pending:
             Circle()
                 .strokeBorder(StreakPalette.pink, lineWidth: 2)
                 .frame(width: circle, height: circle)
-                .overlay { dayNumber(day).foregroundStyle(StreakPalette.check) }
+                .overlay { dayNumber(day).foregroundStyle(colours.check) }
         case .missed:
             dayNumber(day)
-                .foregroundStyle(Color.white.opacity(0.55))
+                .foregroundStyle(colours.faint.opacity(0.55))
                 .frame(width: circle, height: circle)
         case .none:
             Circle()
-                .fill(Color.white.opacity(day.isToday ? 0.16 : 0.08))
+                .fill(colours.faint.opacity(day.isToday ? 0.12 : 0.06))
                 .frame(width: circle, height: circle)
-                .overlay { dayNumber(day).foregroundStyle(Color.white.opacity(0.75)) }
+                .overlay { dayNumber(day).foregroundStyle(colours.faint.opacity(0.75)) }
         }
     }
 
