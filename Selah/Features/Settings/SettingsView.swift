@@ -515,6 +515,13 @@ private struct SettingsForm: View {
     private var aboutSection: some View {
         Section {
             TileRow(title: "Version", icon: .info, tone: .graphite, value: versionText)
+            // Whether the home screen widgets can read Tehila's data (the shared app group survived signing).
+            TileRow(
+                title: "Widgets",
+                icon: .deviceMobile,
+                tone: .graphite,
+                value: WidgetStore.isAvailable ? "Connected" : "Not connected"
+            )
             NavigationLink {
                 CreditsView()
             } label: {

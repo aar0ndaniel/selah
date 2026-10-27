@@ -145,6 +145,35 @@ struct WidgetSnapshotTests {
         #expect(dates.first == calendar.startOfDay(for: day(19)))
     }
 
+    // MARK: App group and built-in verses
+
+    @Test func appGroupsAreReadFromAProvisioningProfile() {
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0"><dict><key>Entitlements</key><dict>
+        <key>com.apple.security.application-groups</key>
+        <array><string>group.com.aarondaniel.selah.ABC123</string></array>
+        </dict></dict></plist>
+        """
+        // The plist sits inside binary signature bytes in a real profile.
+        var data = Data([0x30, 0x82, 0x0F, 0xFF, 0x00])
+        data.append(Data(plist.utf8))
+        data.append(Data([0x00, 0xA0, 0x82]))
+        #expect(AppGroup.groups(fromProvisionData: data) == ["group.com.aarondaniel.selah.ABC123"])
+    }
+
+    @Test func profileWithoutGroupsGivesNone() {
+        #expect(AppGroup.groups(fromProvisionData: Data("not a profile".utf8)).isEmpty)
+    }
+
+    @Test func builtInVerseChangesDailyAndIsKJV() {
+        let today = WidgetFallbackVerses.verse(on: day(18, 6), calendar: calendar)
+        #expect(today == WidgetFallbackVerses.verse(on: day(18, 22), calendar: calendar))
+        #expect(today.text != WidgetFallbackVerses.verse(on: day(19), calendar: calendar).text)
+        #expect(WidgetFallbackVerses.all.allSatisfy { $0.reference.hasSuffix("(KJV)") && !$0.text.isEmpty })
+    }
+
     @Test func snapshotSurvivesJSON() throws {
         let snapshot = build(mood: .joyful, moodDate: day(18, 8))
         let data = try JSONEncoder().encode(snapshot)

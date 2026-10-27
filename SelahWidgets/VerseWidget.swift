@@ -17,7 +17,10 @@ struct VerseWidgetView: View {
     let entry: SelahEntry
     @Environment(\.widgetFamily) private var family
 
-    private var verse: WidgetVerse? { WidgetDisplay.verse(in: entry.snapshot, on: entry.date) }
+    /// The verse the app shared for this day, or a built-in one so the widget is never empty.
+    private var verse: WidgetVerse {
+        WidgetDisplay.verse(in: entry.snapshot, on: entry.date) ?? WidgetFallbackVerses.verse(on: entry.date)
+    }
     private var mode: String { entry.snapshot?.mascotMode ?? "coral" }
 
     var body: some View {
@@ -36,17 +39,8 @@ struct VerseWidgetView: View {
     private var content: some View {
         if family == .accessoryRectangular {
             rectangular
-        } else if let verse {
-            card(verse)
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                eyebrow
-                Text("Open Tehila to see today's verse")
-                    .font(.widgetText(14, relativeTo: .subheadline))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            card(verse)
         }
     }
 
@@ -117,11 +111,11 @@ struct VerseWidgetView: View {
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(verse?.reference ?? "Verse of the day")
+            Text(verse.reference)
                 .font(.widgetText(13, relativeTo: .headline).weight(.semibold))
                 .widgetAccentable()
                 .lineLimit(1)
-            Text(verse?.text ?? "Open Tehila to see today's verse")
+            Text(verse.text)
                 .font(.widgetText(12, relativeTo: .caption))
                 .lineLimit(2)
         }

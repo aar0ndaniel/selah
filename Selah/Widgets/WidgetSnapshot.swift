@@ -105,15 +105,53 @@ enum WidgetDisplay {
 
 // MARK: - Shared store
 
+/// The app group the app and the widgets share. Re-signing tools such as Sideloadly may rename the group from the one
+/// in Config/*.entitlements (for example adding a team prefix), so the name is read from the signing profile in the
+/// bundle (embedded.mobileprovision); the configured name is the fallback.
+enum AppGroup {
+    static let configuredID = "group.com.aarondaniel.selah"
+
+    /// The first candidate this process can open a container for, or nil when there is no shared container at all.
+    static let identifier: String? = {
+        let candidates = provisionedGroups(in: .main) + [configuredID]
+        return candidates.first {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        }
+    }()
+
+    static func provisionedGroups(in bundle: Bundle) -> [String] {
+        guard let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url)
+        else { return [] }
+        return groups(fromProvisionData: data)
+    }
+
+    /// App groups listed in a provisioning profile. The profile is a signed envelope with a plain XML plist inside;
+    /// Latin-1 keeps every byte as it is, so the plist can be cut out and parsed.
+    static func groups(fromProvisionData data: Data) -> [String] {
+        guard let text = String(data: data, encoding: .isoLatin1),
+              let start = text.range(of: "<?xml"),
+              let end = text.range(of: "</plist>", range: start.lowerBound..<text.endIndex),
+              let plistData = String(text[start.lowerBound..<end.upperBound]).data(using: .isoLatin1),
+              let plist = try? PropertyListSerialization.propertyList(from: plistData, format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any]
+        else { return [] }
+        return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
+}
+
 /// Reads and writes the snapshot in the app group container. Every call is safe when the app group is missing (for
 /// example when a re-signing tool drops it): reads return nil and writes do nothing.
 enum WidgetStore {
-    static let appGroupID = "group.com.aarondaniel.selah"
     private static let fileName = "widget-snapshot.json"
 
+    /// True when this process can reach the shared container (shown in Settings).
+    static var isAvailable: Bool { fileURL != nil }
+
     private static var fileURL: URL? {
-        FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroupID)?
+        guard let group = AppGroup.identifier else { return nil }
+        return FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: group)?
             .appendingPathComponent(fileName)
     }
 
