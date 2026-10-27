@@ -78,19 +78,7 @@ struct TodayView: View {
 
     /// Plain values for the streak rules.
     private var streakInput: StreakInput {
-        var spans: [ReadingSpan] = []
-        for plan in plans where plan.status != .upNext {
-            let dates = plan.entries.map { $0.date }
-            guard let start = plan.startDate ?? dates.min() else { continue }
-            let end: Date? = plan.status == .done ? (plan.finishedDate ?? dates.max() ?? start) : nil
-            spans.append(ReadingSpan(start: start, end: end))
-        }
-        return StreakInput(
-            studyDates: entries.map { $0.date },
-            serviceDates: services.map { $0.date },
-            meetingWeekdays: Set(meetingDays.filter { $0.isActive }.map { $0.weekday }),
-            readingSpans: spans
-        )
+        StreakInput.from(plans: plans, entries: entries, services: services, meetingDays: meetingDays)
     }
 
     /// The celebration plays only while Today is really in front of the user.

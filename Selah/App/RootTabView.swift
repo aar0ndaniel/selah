@@ -146,6 +146,10 @@ struct RootTabView: View {
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             quiet.isSceneActive = phase == .active
+            // Home screen widgets read a snapshot of today's streak, verse and mood.
+            if phase == .active || phase == .background {
+                WidgetSync.refresh(context: modelContext)
+            }
             // Refreshes "Time for Philippians 3" style bodies and drops stale reminders.
             if phase == .active {
                 NotificationScheduler.shared.reschedule(context: modelContext)
@@ -153,6 +157,16 @@ struct RootTabView: View {
                 quiet.consumeFocusSession()
                 presentMoodIfDue()
             }
+        }
+        // A new or changed mood shows on the mood widget straight away.
+        .onChange(of: moodEntries.first?.moodRaw) { _, _ in
+            WidgetSync.refresh(context: modelContext)
+        }
+        // Taps on the home screen widgets: selah://mood opens the check-in, anything else opens Today.
+        .onOpenURL { url in
+            guard url.scheme == "selah" else { return }
+            router.selectedTab = .today
+            if url.host() == "mood" { router.moodCheckInRequested = true }
         }
         // Quiet time hand-off from App Intents / the Focus filter. `initial: true` also catches a destination that
         // was set before this view appeared (the app was launched by the intent).

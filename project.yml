@@ -34,6 +34,32 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Sky AppIcon-Sunshine AppIcon-Leaf AppIcon-Peach AppIcon-Sand"
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+        # Adds the selah:// URL scheme (widget taps) to the generated Info.plist.
+        INFOPLIST_FILE: Config/Selah-Info.plist
+        # App group shared with the widgets. Applied by the ad-hoc signing step in CI (signing is off in xcodebuild).
+        CODE_SIGN_ENTITLEMENTS: Config/Selah.entitlements
+    dependencies:
+      - target: SelahWidgets
+
+  # Home screen and lock screen widgets: verse of the day, streak with the mascot, mood.
+  SelahWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SelahWidgets
+      - path: Selah/Widgets
+      - path: Selah/Resources/Mascot.xcassets
+      - path: Selah/Resources/Fonts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarondaniel.selah.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Config/SelahWidgets-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Selah
+        CODE_SIGN_ENTITLEMENTS: Config/SelahWidgets.entitlements
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
 
   SelahTests:
     type: bundle.unit-test

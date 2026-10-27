@@ -32,6 +32,13 @@ jobs:
           mkdir -p .build/Payload
           cp -r .build/DeviceData/Build/Products/Release-iphoneos/Selah.app .build/Payload/
           test -f .build/Payload/Selah.app/bible.sqlite || { echo "::error::bible.sqlite missing from Selah.app"; exit 1; }
+          APPEX=.build/Payload/Selah.app/PlugIns/SelahWidgets.appex
+          test -d "$APPEX" || { echo "::error::SelahWidgets.appex missing from Selah.app"; exit 1; }
+          # Ad-hoc sign with the app group entitlements so the re-signing tool (Sideloadly) keeps the shared
+          # container the widgets read. The extension first, then the app around it.
+          codesign --force --sign - --entitlements Config/SelahWidgets.entitlements "$APPEX"
+          codesign --force --sign - --entitlements Config/Selah.entitlements .build/Payload/Selah.app
+          codesign -d --entitlements - .build/Payload/Selah.app 2>/dev/null | grep -q "group.com.aarondaniel.selah" || { echo "::error::app group entitlement missing"; exit 1; }
           cd .build
           zip -qr Selah.ipa Payload
           ls -lh Selah.ipa
