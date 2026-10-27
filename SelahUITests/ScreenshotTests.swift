@@ -72,9 +72,22 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func test07OnboardingLight() {
         let app = launchApp(sampleData: false, extra: [Self.onboardingArgument])
-        _ = app.staticTexts["Welcome to Tehila"].waitForExistence(timeout: 10)
+        // The three story pages, then the first setup page.
+        _ = app.staticTexts["Sing every hymn by heart"].waitForExistence(timeout: 10)
         settle()
         snap(app, "07-onboarding-light")
+        let next = app.buttons["intro-continue"]
+        for name in ["07b-onboarding-services", "07c-onboarding-study"] where next.waitForExistence(timeout: 5) {
+            next.tap()
+            settle()
+            snap(app, name)
+        }
+        if next.waitForExistence(timeout: 5) {
+            next.tap()
+            _ = app.staticTexts["Welcome to Tehila"].waitForExistence(timeout: 10)
+            settle()
+            snap(app, "07d-onboarding-welcome")
+        }
     }
 
     // MARK: - Dark

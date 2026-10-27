@@ -1,23 +1,29 @@
 import SwiftUI
 import SwiftData
 
-/// First-launch setup: three short pages, skippable on every page (HIG rule 8.1).
+/// First launch: the story pages (hymns, services, study), then three short setup pages. Skippable on every page
+/// (HIG rule 8.1).
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var profiles: [UserProfile]
+    @State private var introDone = false
 
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
-            if let profile = profiles.first {
-                OnboardingPages(profile: profile)
-            } else {
-                // Exactly one UserProfile is created lazily.
-                Color.clear.onAppear {
-                    ProfileStore.ensure(profiles, in: modelContext)
+            if !introDone {
+                OnboardingIntro {
+                    withAnimation(reduceMotion ? nil : .easeInOut) { introDone = true }
                 }
+                .transition(.opacity)
+            } else if let profile = profiles.first {
+                OnboardingPages(profile: profile)
+                    .transition(.opacity)
             }
         }
+        // Exactly one UserProfile is created lazily.
+        .onAppear { ProfileStore.ensure(profiles, in: modelContext) }
     }
 }
 
@@ -136,6 +142,7 @@ private struct OnboardingPages: View {
     @State private var dayToRemove: MeetingDay?
     @State private var isAsking = false
     @FocusState private var focused: Field?
+    @AppStorage(MascotMode.storageKey) private var mascotModeRaw = MascotMode.standard.rawValue
 
     private let lastPage = 2
 
@@ -250,11 +257,14 @@ private struct OnboardingPages: View {
     private var welcomePage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                IconTile(.book)
+                MascotView(activity: .waving)
+                    .frame(width: 96, height: 96)
+                    .accessibilityHidden(true)
                 header(
                     "Welcome to Tehila",
-                    "A quiet place for your Bible study and your notes from worship services. Everything stays on this iPhone."
+                    "Meet Selah, who keeps you company as you study, worship and sing. Everything stays on this iPhone."
                 )
+                mascotColourPicker
                 VStack(spacing: Theme.Spacing.m) {
                     labelledField("Name", placeholder: "Your name", text: $profile.name, field: .name, content: .givenName, submit: .next)
                     labelledField("Congregation", placeholder: "Your congregation", text: $profile.congregation, field: .congregation, content: nil, submit: .done)
@@ -263,6 +273,38 @@ private struct OnboardingPages: View {
             .padding(Theme.Spacing.l)
         }
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// Personal from the first minute: the user picks Selah's colour (the app icon follows it).
+    private var mascotColourPicker: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text("Pick Selah's colour")
+                .font(.selahLabelSmall)
+                .foregroundStyle(.secondary)
+            HStack(spacing: Theme.Spacing.s) {
+                ForEach(MascotMode.allCases, id: \.rawValue) { mode in
+                    let selected = mode.rawValue == mascotModeRaw
+                    Button {
+                        mascotModeRaw = mode.rawValue
+                        AppIconSwitcher.apply(mode)
+                    } label: {
+                        Circle()
+                            .fill(mode.swatch)
+                            .frame(width: 34, height: 34)
+                            .padding(4)
+                            .overlay {
+                                Circle().strokeBorder(selected ? Theme.accent : Color.clear, lineWidth: 2.5)
+                            }
+                            .frame(minWidth: Theme.minTapTarget, minHeight: Theme.minTapTarget)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(mode.name)
+                    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+                }
+            }
+            .sensoryFeedback(.selection, trigger: mascotModeRaw)
+        }
     }
 
     private func labelledField(
