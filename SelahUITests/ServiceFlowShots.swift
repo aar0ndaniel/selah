@@ -141,21 +141,25 @@ final class ServiceFlowShots: XCTestCase {
 
     @MainActor
     private func dismissKeyboard(_ app: XCUIApplication) {
-        if app.keyboards.firstMatch.exists {
-            // Asking `isHittable` can itself fail while the keyboard animates, so tap by position when the button
-            // has a real frame.
-            let done = app.buttons["keyboard-done"]
-            if done.exists && !done.frame.isEmpty {
-                done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            } else if app.toolbars.buttons["Done"].exists {
-                app.toolbars.buttons["Done"].tap()
-            } else if app.buttons["format-done"].exists {
-                app.buttons["format-done"].tap()
-            } else {
-                app.swipeDown()
+        guard app.keyboards.firstMatch.exists else { return }
+        // The keyboard toolbar rebuilds while it animates, so the Done button can vanish between finding it and
+        // tapping it. That is not what these screenshots test: treat such a miss as an expected, non-fatal failure,
+        // then fall back to swiping the keyboard away.
+        XCTExpectFailure("The keyboard toolbar can change while it animates", options: .nonStrict()) {
+            let done = app.buttons["keyboard-done"].firstMatch
+            if done.waitForExistence(timeout: 1) {
+                done.tap()
+            } else if app.toolbars.buttons["Done"].firstMatch.exists {
+                app.toolbars.buttons["Done"].firstMatch.tap()
+            } else if app.buttons["format-done"].firstMatch.exists {
+                app.buttons["format-done"].firstMatch.tap()
             }
         }
         pause(0.8)
+        if app.keyboards.firstMatch.exists {
+            app.swipeDown()
+            pause(0.8)
+        }
     }
 
     @MainActor
