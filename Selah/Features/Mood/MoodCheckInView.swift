@@ -172,8 +172,9 @@ struct MoodCheckInView: View {
             .focused($noteFocused)
             .padding(Theme.Spacing.m)
             .frame(minHeight: Theme.minTapTarget)
+            // White field on the grey page, like a Settings row.
             .background(
-                Color(.secondarySystemBackground),
+                Theme.card,
                 in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
             )
             .accessibilityIdentifier("mood-note")
@@ -192,7 +193,7 @@ struct MoodCheckInView: View {
         }
         .padding(.horizontal, Theme.Spacing.m)
         .padding(.vertical, Theme.Spacing.xs)
-        .background(Color(.systemBackground))
+        .background(Color(.systemGroupedBackground))
     }
 
     private func select(_ item: MascotMood) {

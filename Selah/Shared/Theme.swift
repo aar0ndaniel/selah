@@ -38,8 +38,8 @@ enum Theme {
     enum Radius {
         static let small: CGFloat = 12
         static let medium: CGFloat = 16
-        /// Cards, hero blocks and sticky notes.
-        static let card: CGFloat = 20
+        /// Cards and hero blocks: the iOS 26 grouped-list corner (as in Settings).
+        static let card: CGFloat = 26
     }
 
     /// Minimum tap target (HIG).

@@ -97,7 +97,6 @@ struct BookCard: View {
                 lineWidth: 1
             )
         }
-        .shadow(color: Theme.cardShadow, radius: 12, x: 0, y: 4)
         .contentShape(shape)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary)

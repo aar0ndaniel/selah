@@ -34,10 +34,6 @@ struct StudyFocusCard: View {
             ),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(Theme.cardEdge, lineWidth: 0.5)
-        }
     }
 
     // MARK: Top strip
@@ -107,8 +103,8 @@ struct StudyFocusCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Liquid Glass over the tinted frame (the frame is what the glass refracts), lightly tinted so text stays crisp.
-        .glassEffect(.regular.tint(FocusPalette.glassTint), in: .rect(cornerRadius: 22))
+        // A flat raised card inside the tinted frame, like a Settings card: no shadow.
+        .background(FocusPalette.inner, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     /// The coral button, text only: start the book, write today's note, or open it.

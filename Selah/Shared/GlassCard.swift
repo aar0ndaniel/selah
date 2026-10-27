@@ -20,29 +20,22 @@ struct GlassCard<Content: View>: View {
 }
 
 extension Theme {
-    /// Card surface (owner, 27 Oct): Apple white in light mode, the iOS dark card #1C1C1E in dark mode. Never the
-    /// light grey `secondarySystemBackground` in light mode.
-    static let card = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.11, green: 0.11, blue: 0.118, alpha: 1) : .white
+    /// Card surface, like iOS Settings (owner, 27 Oct): white in light mode, #1C1C1E in dark mode, on the grey
+    /// grouped page. The page colour is the separation: no shadows, no borders.
+    static let card = Color(.secondarySystemGroupedBackground)
+    /// A surface one step up inside a card or a tinted frame: white in light mode, #2C2C2E in dark mode.
+    static let cardRaised = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.173, green: 0.173, blue: 0.180, alpha: 1) : .white
     })
-    /// Soft lift that separates a white card from the white page. Clear in dark mode (the card colour does it).
-    static let cardShadow = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .clear : UIColor(white: 0, alpha: 0.07)
-    })
-    /// Hairline edge for white cards in light mode.
-    static let cardEdge = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .clear : UIColor(white: 0, alpha: 0.05)
-    })
+    /// Kept for callers; cards no longer cast shadows or draw edges.
+    static let cardShadow = Color.clear
+    static let cardEdge = Color.clear
 }
 
 extension View {
-    /// Draws the view on the standard card: `Theme.card`, a hairline edge and a soft shadow in light mode.
+    /// Draws the view on the standard card: `Theme.card` on the grey page, flat (no shadow, no border).
     func selahCard(radius: CGFloat = Theme.Radius.card) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        return self
-            .background(Theme.card, in: shape)
-            .overlay { shape.strokeBorder(Theme.cardEdge, lineWidth: 0.5) }
-            .shadow(color: Theme.cardShadow, radius: 12, x: 0, y: 4)
+        self.background(Theme.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
@@ -123,16 +116,12 @@ extension View {
         self
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(padding)
-            .glassEffect(.regular.tint(Theme.glassTint), in: .rect(cornerRadius: 22))
+            .background(Theme.cardRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .padding(6)
             .background(
                 LinearGradient(colors: [Theme.frameTop, Theme.frameBottom], startPoint: .top, endPoint: .bottom),
                 in: RoundedRectangle(cornerRadius: 28, style: .continuous)
             )
-            .overlay {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Theme.cardEdge, lineWidth: 0.5)
-            }
     }
 }
 
