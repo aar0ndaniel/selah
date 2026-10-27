@@ -275,6 +275,6 @@ struct BackupServiceTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
         let date = calendar.date(from: DateComponents(year: 2026, month: 10, day: 18, hour: 12)) ?? Date()
-        #expect(BackupService.fileName(for: date, calendar: calendar) == "Selah backup 2026-10-18.json")
+        #expect(BackupService.fileName(for: date, calendar: calendar) == "Tehila backup 2026-10-18.json")
     }
 }

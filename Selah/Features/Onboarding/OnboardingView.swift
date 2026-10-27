@@ -252,7 +252,7 @@ private struct OnboardingPages: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 IconTile(.book)
                 header(
-                    "Welcome to Selah",
+                    "Welcome to Tehila",
                     "A quiet place for your Bible study and your notes from worship services. Everything stays on this iPhone."
                 )
                 VStack(spacing: Theme.Spacing.m) {
@@ -463,7 +463,7 @@ private struct OnboardingPages: View {
                         Text("Gentle reminders")
                             .font(.selahCardTitle)
                             .foregroundStyle(Theme.brandInk)
-                        Text("Selah can remind you to read your book each day and before your gatherings. It only sends reminders you set up. You can turn this off in Settings.")
+                        Text("Tehila can remind you to read your book each day and before your gatherings. It only sends reminders you set up. You can turn this off in Settings.")
                             .font(.selahLabel)
                             .foregroundStyle(Theme.brandInk.opacity(0.85))
                     }

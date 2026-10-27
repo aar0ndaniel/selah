@@ -29,7 +29,7 @@ struct CreditsView: View {
             Section {
                 credit(
                     "Hymnary.org",
-                    "Hymn search and lyrics. Selah only shows lyrics Hymnary.org marks as free to display. Other songs keep the lyrics you type, on this iPhone only."
+                    "Hymn search and lyrics. Tehila only shows lyrics Hymnary.org marks as free to display. Other songs keep the lyrics you type, on this iPhone only."
                 )
             } header: {
                 Text("Songs")
@@ -57,7 +57,7 @@ struct CreditsView: View {
             }
 
             Section {
-                credit("Mascot and streak art", "Made for Selah.")
+                credit("Selah, the mascot", "Mascot and streak art made for Tehila.")
             } header: {
                 Text("Artwork")
             }

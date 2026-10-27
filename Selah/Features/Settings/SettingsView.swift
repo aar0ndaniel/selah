@@ -343,7 +343,7 @@ private struct SettingsForm: View {
         } header: {
             Text("Mascot")
         } footer: {
-            Text("Your mascot and app icon follow this colour.")
+            Text("Selah, your mascot, and the app icon follow this colour.")
         }
     }
 
@@ -445,7 +445,7 @@ private struct SettingsForm: View {
         } header: {
             Text("Data")
         } footer: {
-            Text("Everything stays on this iPhone. Selah has no account and no server. Back up before you delete the app or change Apple ID, because deleting the app deletes its data.")
+            Text("Everything stays on this iPhone. Tehila has no account and no server. Back up before you delete the app or change Apple ID, because deleting the app deletes its data.")
         }
     }
 
@@ -476,7 +476,7 @@ private struct SettingsForm: View {
                 let url = try BackupService.writeBackupFile(from: modelContext)
                 shareItem = ShareItem(items: [url])
             } catch {
-                notice("Couldn't back up", "Selah couldn't make the backup file. Please try again.")
+                notice("Couldn't back up", "Tehila couldn't make the backup file. Please try again.")
             }
             isBackingUp = false
         }

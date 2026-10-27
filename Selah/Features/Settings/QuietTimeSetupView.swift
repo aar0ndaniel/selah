@@ -52,7 +52,7 @@ struct QuietTimeSetupView: View {
                 PIconView(.moon, filled: true, size: 28, relativeTo: .title3)
                     .foregroundStyle(Tone.slate.ink)
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text("Selah can't silence your phone by itself. iOS lets you do it with a Focus. Set it up once and it turns on by itself.")
+                    Text("Tehila can't silence your phone by itself. iOS lets you do it with a Focus. Set it up once and it turns on by itself.")
                         .font(.selahBody)
                         .foregroundStyle(.primary)
                     Text("It takes about five minutes. Nothing here needs an account.")
@@ -67,14 +67,14 @@ struct QuietTimeSetupView: View {
     // MARK: Steps
 
     private var stepOne: some View {
-        QuietStepCard(number: 1, title: "Create a Selah Focus", icon: .bellSlash) {
+        QuietStepCard(number: 1, title: "Create a Tehila Focus", icon: .bellSlash) {
             QuietBullets(lines: [
                 "Go to Settings, then Focus.",
-                "Tap +, then Custom, and name it Selah.",
+                "Tap +, then Custom, and name it Tehila.",
                 "Under Silence notifications, choose who can still reach you: nobody, or only calls from Favourites.",
                 "Tap Customize screens, then Home Screen, and pick a page without social apps."
             ])
-            Text("The button below opens Selah's own page in Settings. Tap Settings at the top left to go back one level, then choose Focus.")
+            Text("The button below opens Tehila's own page in Settings. Tap Settings at the top left to go back one level, then choose Focus.")
                 .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
             Button {
@@ -90,26 +90,26 @@ struct QuietTimeSetupView: View {
     }
 
     private var stepTwo: some View {
-        QuietStepCard(number: 2, title: "Add the Selah filter", icon: .gear) {
+        QuietStepCard(number: 2, title: "Add the Tehila filter", icon: .gear) {
             QuietBullets(lines: [
-                "In Settings, go to Focus and open Selah.",
-                "Tap Focus filters, then Add filter, then Selah.",
-                "Under Open to, choose Today, Study session or Service notes. Selah opens there when the Focus is on."
+                "In Settings, go to Focus and open Tehila.",
+                "Tap Focus filters, then Add filter, then Tehila.",
+                "Under Open to, choose Today, Study session or Service notes. Tehila opens there when the Focus is on."
             ])
-            Text("If Selah isn't in the list, open Selah once and try again.")
+            Text("If Tehila isn't in the list, open Tehila once and try again.")
                 .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
     }
 
     private var stepThree: some View {
-        QuietStepCard(number: 3, title: "Turn it on when you open Selah", icon: .moon) {
+        QuietStepCard(number: 3, title: "Turn it on when you open Tehila", icon: .moon) {
             QuietBullets(lines: [
                 "Open Shortcuts, tap Automation, then +.",
-                "Choose App, pick Selah, and choose Is Opened.",
+                "Choose App, pick Tehila, and choose Is Opened.",
                 "Choose Run Immediately.",
-                "Add the action Set Focus. Set it to Selah, Turn On.",
-                "Optional: make a second automation for Is Closed that turns the Selah Focus off."
+                "Add the action Set Focus. Set it to Tehila, Turn On.",
+                "Optional: make a second automation for Is Closed that turns the Tehila Focus off."
             ])
             Button {
                 Task { await open(URL(string: "shortcuts://")) { shortcutsMessage = "Couldn't open Shortcuts. Open it from your Home Screen." } }
@@ -142,7 +142,7 @@ struct QuietTimeSetupView: View {
                     "In Shortcuts, tap Automation, then +, then Time of Day.",
                     "Set the time shown, then choose Weekly and the day, or Daily.",
                     "Choose Run Immediately.",
-                    "Add the Selah action shown for that time, then add Set Focus: Selah, Turn On. Choose how long it stays on."
+                    "Add the Tehila action shown for that time, then add Set Focus: Tehila, Turn On. Choose how long it stays on."
                 ])
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                     ForEach(items) { item in
@@ -162,7 +162,7 @@ struct QuietTimeSetupView: View {
             )
             Text(item.title)
                 .font(.selahHeadline)
-            Text("Add \"\(item.actionName)\", then Set Focus: Selah.")
+            Text("Add \"\(item.actionName)\", then Set Focus: Tehila.")
                 .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }
@@ -173,7 +173,7 @@ struct QuietTimeSetupView: View {
             in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.label). Add \(item.actionName), then Set Focus: Selah.")
+        .accessibilityLabel("\(item.label). Add \(item.actionName), then Set Focus: Tehila.")
     }
 
     private var stepFive: some View {
@@ -193,7 +193,7 @@ struct QuietTimeSetupView: View {
                     .font(.selahLabelSmall)
                     .foregroundStyle(.secondary)
             }
-            Text("You can also ask Siri: \"Start quiet time in Selah\".")
+            Text("You can also ask Siri: \"Start quiet time in Tehila\".")
                 .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
         }

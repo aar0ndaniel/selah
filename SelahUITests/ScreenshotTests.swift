@@ -72,7 +72,7 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func test07OnboardingLight() {
         let app = launchApp(sampleData: false, extra: [Self.onboardingArgument])
-        _ = app.staticTexts["Welcome to Selah"].waitForExistence(timeout: 10)
+        _ = app.staticTexts["Welcome to Tehila"].waitForExistence(timeout: 10)
         settle()
         snap(app, "07-onboarding-light")
     }

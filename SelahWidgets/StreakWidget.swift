@@ -132,7 +132,7 @@ struct StreakWidgetView: View {
         VStack(spacing: 6) {
             StreakArtwork(lit: false, mode: mode)
                 .frame(height: 56)
-            Text("Open Selah to see your streak")
+            Text("Open Tehila to see your streak")
                 .font(.widgetText(12, relativeTo: .caption).weight(.semibold))
                 .foregroundStyle(WidgetPalette.streakLabel)
                 .multilineTextAlignment(.center)

@@ -44,7 +44,7 @@ struct ExportServiceTests {
 
         let text = ExportService.monthlyText(summary: summary, services: items, calendar: calendar, locale: locale)
 
-        #expect(text.hasPrefix("Selah — October 2026"))
+        #expect(text.hasPrefix("Tehila — October 2026"))
         #expect(text.contains("2 services"))
         #expect(text.contains("1 sermon"))
         #expect(text.contains("1 Bible class"))
@@ -108,9 +108,9 @@ struct ExportServiceTests {
         let summary = MonthlySummary(services: [], month: date(2026, 10, 1), calendar: calendar)
         #expect(
             ExportService.monthlyFileName(summary: summary, calendar: calendar, locale: locale, ext: "pdf")
-                == "Selah October 2026 summary.pdf"
+                == "Tehila October 2026 summary.pdf"
         )
-        #expect(ExportService.bookFileName("Song of Solomon", ext: "pdf") == "Selah Song of Solomon entries.pdf")
+        #expect(ExportService.bookFileName("Song of Solomon", ext: "pdf") == "Tehila Song of Solomon entries.pdf")
         #expect(ExportService.sanitised("a/b:c.pdf") == "a-b-c.pdf")
     }
 
@@ -125,7 +125,7 @@ struct ExportServiceTests {
             calendar: calendar,
             locale: locale
         )
-        let url = try ExportService.writePDF(document, fileName: "Selah test entries.pdf")
+        let url = try ExportService.writePDF(document, fileName: "Tehila test entries.pdf")
         let data = try Data(contentsOf: url)
         try? FileManager.default.removeItem(at: url)
         #expect(data.starts(with: Array("%PDF".utf8)))

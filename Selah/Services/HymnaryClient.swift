@@ -515,7 +515,7 @@ enum HymnaryParsing {
 
 /// Talks to hymnary.org. Not unit tested (network); everything it returns goes through `HymnaryParsing`.
 struct HymnaryClient: Sendable {
-    static let userAgent = "Selah iOS app (personal use)"
+    static let userAgent = "Tehila iOS app (personal use)"
     static let timeout: TimeInterval = 10
 
     private let session: URLSession

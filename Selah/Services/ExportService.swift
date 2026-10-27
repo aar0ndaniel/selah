@@ -236,7 +236,7 @@ enum ExportService {
         locale: Locale = .current
     ) -> ExportDocument {
         var blocks: [ExportDocument.Block] = []
-        blocks.append(.title("Selah — \(monthTitle(summary.monthStart, calendar: calendar, locale: locale))"))
+        blocks.append(.title("Tehila — \(monthTitle(summary.monthStart, calendar: calendar, locale: locale))"))
         blocks.append(.gap)
         blocks.append(.body(count(summary.serviceCount, "service", "services")))
         blocks.append(.body(count(summary.sermonCount, "sermon", "sermons")))
@@ -357,11 +357,11 @@ enum ExportService {
     // MARK: File names
 
     static func monthlyFileName(summary: MonthlySummary, calendar: Calendar = .current, locale: Locale = .current, ext: String) -> String {
-        sanitised("Selah \(monthTitle(summary.monthStart, calendar: calendar, locale: locale)) summary.\(ext)")
+        sanitised("Tehila \(monthTitle(summary.monthStart, calendar: calendar, locale: locale)) summary.\(ext)")
     }
 
     static func bookFileName(_ bookName: String, ext: String) -> String {
-        sanitised("Selah \(bookName) entries.\(ext)")
+        sanitised("Tehila \(bookName) entries.\(ext)")
     }
 
     static func sanitised(_ name: String) -> String {
@@ -527,7 +527,7 @@ struct ExportMenu: View {
         .alert("Couldn't export", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Selah couldn't make the file. Please try again.")
+            Text("Tehila couldn't make the file. Please try again.")
         }
     }
 

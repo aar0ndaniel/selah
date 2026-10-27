@@ -188,10 +188,10 @@ enum BackupError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .cannotRead: return "Selah couldn't open that file."
-        case .notABackup: return "That file isn't a Selah backup."
-        case .newerVersion: return "That backup was made by a newer version of Selah. Update Selah and try again."
-        case .cannotSave: return "Selah couldn't restore the backup. Your data was left as it was."
+        case .cannotRead: return "Tehila couldn't open that file."
+        case .notABackup: return "That file isn't a Tehila backup."
+        case .newerVersion: return "That backup was made by a newer version of Tehila. Update Tehila and try again."
+        case .cannotSave: return "Tehila couldn't restore the backup. Your data was left as it was."
         }
     }
 }
@@ -252,7 +252,7 @@ enum BackupService {
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
-        return "Selah backup \(formatter.string(from: date)).json"
+        return "Tehila backup \(formatter.string(from: date)).json"
     }
 
     /// Writes the backup to the temporary folder and returns the file's URL.

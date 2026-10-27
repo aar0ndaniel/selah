@@ -39,13 +39,13 @@ enum QuietOpenTo: String, AppEnum, CaseIterable {
 /// activation with a timestamp and `QuietFocusRule` keeps that safe (one navigation per activation, ignored after
 /// two hours).
 struct SelahFocusFilter: SetFocusFilterIntent {
-    static let title: LocalizedStringResource = "Selah"
+    static let title: LocalizedStringResource = "Tehila"
 
     @Parameter(title: "Open to", default: .today)
     var openTo: QuietOpenTo
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "Selah", subtitle: "Opens to \(openTo.title)")
+        DisplayRepresentation(title: "Tehila", subtitle: "Opens to \(openTo.title)")
     }
 
     func perform() async throws -> some IntentResult {

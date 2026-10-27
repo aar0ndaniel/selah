@@ -99,7 +99,7 @@ struct BookPage: View {
         .alert("Couldn't export", isPresented: $showExportError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Selah couldn't make the file. Please try again.")
+            Text("Tehila couldn't make the file. Please try again.")
         }
         .confirmationDialog(
             "Delete \(plan.bookName)?",

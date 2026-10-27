@@ -41,7 +41,7 @@ struct VerseWidgetView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 eyebrow
-                Text("Open Selah to see today's verse")
+                Text("Open Tehila to see today's verse")
                     .font(.widgetText(14, relativeTo: .subheadline))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
@@ -121,7 +121,7 @@ struct VerseWidgetView: View {
                 .font(.widgetText(13, relativeTo: .headline).weight(.semibold))
                 .widgetAccentable()
                 .lineLimit(1)
-            Text(verse?.text ?? "Open Selah to see today's verse")
+            Text(verse?.text ?? "Open Tehila to see today's verse")
                 .font(.widgetText(12, relativeTo: .caption))
                 .lineLimit(2)
         }
