@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-/// Edit a book's plan: days, start date, reminders, banner image and card colour.
+/// Edit a study: its title and description, days, start date, reminders, picture and card colour.
 /// Changes apply as you make them; Done closes the sheet.
 struct EditPlanSheet: View {
     @Bindable var plan: ReadingPlan
@@ -28,6 +28,7 @@ struct EditPlanSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                studySection
                 planSection
                 remindersSection
                 bannerSection
@@ -53,6 +54,24 @@ struct EditPlanSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    // MARK: Study
+
+    private var studySection: some View {
+        Section {
+            TextField("Title, for example Calling of mankind", text: $plan.title)
+                .font(.selahBody)
+                .frame(minHeight: Theme.minTapTarget)
+            TextField("A short description", text: $plan.summary, axis: .vertical)
+                .font(.selahBody)
+                .lineLimit(2...4)
+                .frame(minHeight: Theme.minTapTarget)
+        } header: {
+            Text("Study")
+        } footer: {
+            Text("Shown on the Study card and at the top of the book page. Leave the title empty to use \(plan.bookName).")
+        }
     }
 
     // MARK: Plan
@@ -124,6 +143,18 @@ struct EditPlanSheet: View {
 
     private var bannerSection: some View {
         Section {
+            let pictures = StudyIllustration.available
+            if !pictures.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Spacing.s) {
+                        ForEach(pictures) { picture in
+                            illustrationChoice(picture)
+                        }
+                    }
+                    .padding(.vertical, Theme.Spacing.xxs)
+                }
+                .listRowInsets(EdgeInsets(top: Theme.Spacing.xs, leading: Theme.Spacing.m, bottom: Theme.Spacing.xs, trailing: Theme.Spacing.m))
+            }
             if let data = plan.bannerData {
                 BannerImageView(data: data, height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
@@ -137,15 +168,39 @@ struct EditPlanSheet: View {
                 Button(role: .destructive) {
                     plan.bannerData = nil
                 } label: {
-                    Text("Remove banner")
+                    Text("Remove photo")
                         .frame(minHeight: Theme.minTapTarget, alignment: .leading)
                 }
             }
         } header: {
-            Text("Banner image")
+            Text("Picture")
         } footer: {
-            Text("Shown at the top of the book page.")
+            Text("Shown on the Study card. A photo is used instead of a picture when you choose one.")
         }
+    }
+
+    private func illustrationChoice(_ picture: StudyIllustration) -> some View {
+        let selected = plan.illustration == picture && plan.bannerData == nil
+        return Button {
+            plan.illustration = plan.illustration == picture ? nil : picture
+        } label: {
+            Group {
+                if let image = picture.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+            .frame(width: 88, height: 88)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .strokeBorder(selected ? Theme.accent : Color.clear, lineWidth: 3)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(picture.title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 
     // MARK: Colour

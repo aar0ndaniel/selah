@@ -196,7 +196,7 @@ struct NotesView: View {
         }
         .padding(Theme.Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .selahCard(radius: 18)
         .accessibilityElement(children: .contain)
     }
 

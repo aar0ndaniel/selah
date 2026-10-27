@@ -108,6 +108,8 @@ enum SampleData {
             startDate: daysAgo(2),
             chaptersRead: [1, 2]
         )
+        philippians.title = "Joy in every season"
+        philippians.summary = "Four days with Paul's letter of joy, written from prison."
         context.insert(philippians)
         let reminder = ReadingReminder(hour: 7, minute: 0)
         context.insert(reminder)

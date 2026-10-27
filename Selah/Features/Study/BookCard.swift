@@ -24,112 +24,111 @@ struct CardPill: View {
     }
 }
 
-/// One book in the Study list: a card tinted with the book's colour, an optional banner strip on top,
-/// the serif book name, a progress ring and pills.
+/// One study in the Study list: the picture (photo, illustration, or Selah reading), the book as a red pill, the
+/// study title, a status line, and a light progress ring in glass at the top right.
 struct BookCard: View {
     let plan: ReadingPlan
 
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 64
-
-    private var tone: Tone { plan.cardTone }
+    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 52
+    @ScaledMetric(relativeTo: .body) private var cardHeight: CGFloat = 188
 
     private var progress: Double {
         guard plan.totalChapters > 0 else { return 0 }
         return Double(plan.chaptersRead.count) / Double(plan.totalChapters)
     }
 
+    private var statusLine: String {
+        switch plan.status {
+        case .reading:
+            let pace = plan.pace()
+            return "Day \(pace.dayNumber) of \(pace.plannedDays) \u{00B7} \(StudyActions.chaptersText(pace.chaptersPerDay)) a day"
+        case .upNext:
+            return "Up next \u{00B7} \(plan.plannedDays) days"
+        case .done:
+            return StudyActions.planLine(for: plan)
+        }
+    }
+
     private var summary: String {
-        var parts = [plan.bookName, StudyActions.progressText(for: plan), StudyActions.planLine(for: plan)]
+        var parts = [plan.displayTitle, plan.bookName, StudyActions.progressText(for: plan), statusLine]
         if let reminders = StudyActions.remindersText(for: plan) { parts.append(reminders) }
         return parts.joined(separator: ". ")
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let data = plan.bannerData {
-                BannerImageView(data: data, height: 88)
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        // The picture is a background, so the card's size comes from its text (and the minimum height).
+        return header
+            .padding(Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: typeSize.isAccessibilitySize ? nil : cardHeight, alignment: .topLeading)
+            .background {
+                ZStack {
+                    StudyArtwork(plan: plan)
+                    if StudyArtwork.hasPicture(plan) {
+                        // Keeps the title readable over any picture: the card colour fading out from the top.
+                        LinearGradient(
+                            stops: [
+                                .init(color: Theme.card.opacity(0.92), location: 0),
+                                .init(color: Theme.card.opacity(0.6), location: 0.4),
+                                .init(color: Theme.card.opacity(0), location: 0.7)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                }
+                .accessibilityHidden(true)
             }
-            content
-                .padding(Theme.Spacing.m)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tone.fill)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .clipShape(shape)
+        .selahCard()
+        .contentShape(shape)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary)
         .accessibilityHint("Opens the book page")
         .accessibilityIdentifier("book-card")
     }
 
-    private var content: some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.s))
-            : AnyLayout(HStackLayout(spacing: Theme.Spacing.m))
-        return layout {
-            ring
-
+    private var header: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.s) {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text(plan.bookName)
-                    .font(.selahCardTitle)
-                    .foregroundStyle(tone.onSurface)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                FlowLayout(spacing: Theme.Spacing.xs) {
-                    ForEach(pills, id: \.text) { pill in
-                        CardPill(text: pill.text, icon: pill.icon, tone: tone)
-                    }
-                }
+                SelahPill(plan.bookName, style: .accent)
+                Text(plan.displayTitle)
+                    .font(.selahTitle)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(statusLine)
+                    .font(.selahLabelSmall)
+                    .foregroundStyle(.secondary)
             }
-
+            .frame(maxWidth: .infinity, alignment: .leading)
             if !typeSize.isAccessibilitySize {
-                PIconView(.caretRight, size: 14, relativeTo: .footnote)
-                    .font(.selahLabelSmall.weight(.semibold))
-                    .foregroundStyle(tone.inkSecondary)
-                    .accessibilityHidden(true)
+                ring
             }
         }
     }
 
+    /// A light ring: thin, a pale track and the accent, on a small glass disc so it reads over any picture.
     private var ring: some View {
         ZStack {
-            Circle().fill(Color(.systemBackground).opacity(0.6))
-            ProgressRing(
-                progress: progress,
-                lineWidth: 6,
-                tone: tone,
-                centreLabel: "\(plan.chaptersRead.count)/\(plan.totalChapters)",
-                accessibilityLabel: "Chapters read",
-                accessibilityValue: StudyActions.progressText(for: plan)
-            )
-            .foregroundStyle(tone.ink)
-            .padding(5)
+            Circle()
+                .stroke(Color.primary.opacity(0.12), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: min(max(progress, 0), 1))
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(plan.chaptersRead.count)/\(plan.totalChapters)")
+                .font(.selahStatSmall)
+                .foregroundStyle(.primary)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+                .padding(Theme.Spacing.xs)
         }
+        .padding(5)
         .frame(width: ringSize, height: ringSize)
-    }
-
-    private struct PillItem {
-        let text: String
-        let icon: PIcon?
-    }
-
-    private var pills: [PillItem] {
-        var items: [PillItem] = []
-        switch plan.status {
-        case .reading:
-            let pace = plan.pace()
-            items.append(PillItem(text: "Day \(pace.dayNumber) of \(pace.plannedDays)", icon: .calendarBlank))
-            items.append(PillItem(text: "\(StudyActions.chaptersText(pace.chaptersPerDay)) a day", icon: .bookOpen))
-        case .upNext:
-            items.append(PillItem(text: "\(plan.plannedDays) days", icon: .calendarBlank))
-            items.append(PillItem(text: StudyActions.chaptersText(plan.totalChapters), icon: .bookOpen))
-        case .done:
-            items.append(PillItem(text: StudyActions.planLine(for: plan), icon: .checkCircle))
-        }
-        if plan.status != .done {
-            items.append(PillItem(text: "\(plan.chaptersRead.count) read", icon: .check))
-        }
-        return items
+        .glassEffect(.regular, in: .circle)
+        .accessibilityHidden(true)
     }
 }
 

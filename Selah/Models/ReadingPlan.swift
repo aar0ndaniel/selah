@@ -14,6 +14,13 @@ final class ReadingPlan {
     @Attribute(.externalStorage) var bannerData: Data? = nil
     /// Card colour, stored as a `NoteColour` raw value.
     var toneRaw: String = "sage"
+    /// The study's own name, for example "Calling of Mankind". Empty means the book name is used.
+    var title: String = ""
+    /// A short description shown under the title on the book page.
+    var summary: String = ""
+    /// A built-in illustration for the Study card (`StudyIllustration` raw value). Empty means none; a banner photo
+    /// wins over it.
+    var illustrationRaw: String = ""
 
     @Relationship(deleteRule: .cascade, inverse: \StudyEntry.plan)
     var entries: [StudyEntry] = []
@@ -47,4 +54,10 @@ final class ReadingPlan {
 
     /// The design-system tone to draw this book's card with.
     var cardTone: Tone { tone.tone }
+
+    /// The study title, or the book name when no title is set.
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? bookName : trimmed
+    }
 }

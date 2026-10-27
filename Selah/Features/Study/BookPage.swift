@@ -9,7 +9,8 @@ struct EntryRoute: Hashable {
     let date: Date
 }
 
-/// A book as a full page: banner and title, plan calendar, today's note, the notes so far, chapters.
+/// A study as a full page: the hero card (progress, book, title, description, today's note), the notes so far,
+/// the plan calendar and the chapters.
 /// Pushed from the Study list. Plan settings live behind the "…" menu (Edit plan).
 struct BookPage: View {
     @Bindable var plan: ReadingPlan
@@ -20,7 +21,6 @@ struct BookPage: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var circleSize: CGFloat = 44
-    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 72
 
     @State private var route: EntryRoute?
     @State private var showEdit = false
@@ -70,8 +70,7 @@ struct BookPage: View {
     private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                todayButton
+                hero
                 notesSection
                 calendarSection
                 chaptersSection
@@ -190,102 +189,161 @@ struct BookPage: View {
         }
     }
 
-    // MARK: Header
+    // MARK: Hero
 
-    private var header: some View {
+    /// The study at a glance: overall progress on the tinted top strip, the white card with the book, the study
+    /// title, its description, today's note button and the day count, then whether today's note is saved.
+    private var hero: some View {
         VStack(spacing: 0) {
-            if let data = plan.bannerData {
-                BannerImageView(data: data, height: 180)
-            }
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                Text(plan.bookName)
-                    .font(.selahDisplay)
-                    .foregroundStyle(tone.onSurface)
-                    .accessibilityAddTraits(.isHeader)
+            progressStrip
+            mainCard
+                .padding(.horizontal, 6)
+            todayStrip
+        }
+        .background(Theme.brandFill, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
 
-                let layout = typeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.s))
-                    : AnyLayout(HStackLayout(spacing: Theme.Spacing.m))
-                layout {
-                    ring
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text(StudyActions.progressText(for: plan))
-                            .font(.selahLabel)
-                            .foregroundStyle(tone.inkSecondary)
-                        FlowLayout(spacing: Theme.Spacing.xs) {
-                            ForEach(pills, id: \.text) { pill in
-                                CardPill(text: pill.text, icon: pill.icon, tone: tone)
-                            }
-                        }
-                    }
+    private var percentText: String { "\(Int((progress * 100).rounded()))%" }
+
+    private var progressStrip: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            ZStack {
+                Circle()
+                    .stroke(Theme.brandInk.opacity(0.2), lineWidth: 3)
+                Circle()
+                    .trim(from: 0, to: min(max(progress, 0), 1))
+                    .stroke(Theme.brandInk, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 18, height: 18)
+            Text("Overall progress")
+                .font(.selahLabel)
+                .foregroundStyle(Theme.brandInk)
+            Spacer(minLength: Theme.Spacing.s)
+            Text(percentText)
+                .font(.selahStatSmall)
+                .foregroundStyle(Theme.brandInk)
+        }
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.vertical, Theme.Spacing.s)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Overall progress")
+        .accessibilityValue("\(percentText). \(StudyActions.progressText(for: plan))")
+    }
+
+    private var mainCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            Text(plan.title.trimmingCharacters(in: .whitespaces).isEmpty ? "Bible study" : plan.bookName)
+                .font(.selahLabel)
+                .foregroundStyle(.secondary)
+            Text(plan.displayTitle)
+                .font(.selahDisplay)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            let summary = plan.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !summary.isEmpty {
+                Text(summary)
+                    .font(.selahBody)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.s) {
+                    todayButton
+                    Spacer(minLength: Theme.Spacing.xs)
+                    dayInfo
+                }
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    todayButton
+                    dayInfo
                 }
             }
-            .padding(Theme.Spacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, Theme.Spacing.xs)
         }
-        .background(tone.fill)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .padding(Theme.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .selahCard(radius: 22)
     }
 
-    private var ring: some View {
-        ZStack {
-            Circle().fill(Color(.systemBackground).opacity(0.6))
-            ProgressRing(
-                progress: progress,
-                lineWidth: 7,
-                tone: tone,
-                centreLabel: "\(plan.chaptersRead.count)/\(plan.totalChapters)",
-                accessibilityLabel: "Chapters read",
-                accessibilityValue: StudyActions.progressText(for: plan)
-            )
-            .foregroundStyle(tone.ink)
-            .padding(6)
+    /// The coral button: start the book, write today's note, or open it.
+    private var todayButton: some View {
+        Button {
+            if plan.startDate == nil {
+                StudyActions.startReading(plan)
+            } else {
+                openDay(Date())
+            }
+        } label: {
+            PLabel(todayButtonTitle, icon: plan.startDate == nil ? .bookOpen : .notePencil, size: 18)
+                .font(.selahButton)
+                .foregroundStyle(Theme.onAccent)
+                .padding(.horizontal, Theme.Spacing.m)
+                .frame(minHeight: Theme.minTapTarget)
+                .background(Theme.accent, in: Capsule())
+                .contentShape(Capsule())
         }
-        .frame(width: ringSize, height: ringSize)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-note-button")
     }
 
-    private struct PillItem {
-        let text: String
-        let icon: PIcon
+    private var todayButtonTitle: String {
+        if plan.startDate == nil { return "Start reading" }
+        return todayEntry == nil ? "Write today's note" : "Open today's note"
     }
 
-    private var pills: [PillItem] {
-        var items: [PillItem] = []
+    private var hasReminders: Bool { !plan.reminders.isEmpty }
+
+    private var dayText: String {
         switch plan.status {
         case .reading:
             let pace = plan.pace()
-            items.append(PillItem(text: "Day \(pace.dayNumber) of \(pace.plannedDays)", icon: .calendarBlank))
-            items.append(PillItem(text: "\(StudyActions.chaptersText(pace.chaptersPerDay)) a day", icon: .bookOpen))
+            return "Day \(pace.dayNumber)/\(pace.plannedDays)"
         case .upNext:
-            items.append(PillItem(text: "Up next", icon: .bookmarkSimple))
-            items.append(PillItem(text: "\(plan.plannedDays) days", icon: .calendarBlank))
+            return "\(plan.plannedDays) days"
         case .done:
-            items.append(PillItem(text: StudyActions.planLine(for: plan), icon: .checkCircle))
+            return "Done"
         }
-        if let reminders = StudyActions.remindersText(for: plan) {
-            items.append(PillItem(text: reminders, icon: .bell))
-        }
-        return items
     }
 
-    // MARK: Today
-
-    private var todayButton: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Button {
-                openDay(Date())
-            } label: {
-                PLabel(
-                    todayEntry == nil ? "Write today's note" : "Open today's note",
-                    icon: .notePencil
-                )
-            }
-            .buttonStyle(.selahPrimaryFull)
-            .accessibilityIdentifier("today-note-button")
-            Text(todayEntry == nil ? "Nothing written for today yet." : "Today's note is saved.")
-                .font(.selahLabelSmall)
-                .foregroundStyle(.secondary)
+    /// Day count with the reminder bell: on or off, no time (times are set in Edit plan).
+    private var dayInfo: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            PIconView(hasReminders ? .bell : .bellSlash, size: 16, relativeTo: .subheadline)
+            Text(dayText)
+                .font(.selahLabel.weight(.semibold))
+                .monospacedDigit()
         }
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(dayText.replacingOccurrences(of: "/", with: " of ")), reminders \(hasReminders ? "on" : "off")")
+    }
+
+    private var todayStatus: (icon: PIcon, text: String) {
+        switch plan.status {
+        case .upNext:
+            return (.bookmarkSimple, "Not started yet")
+        case .done:
+            return (.checkCircle, StudyActions.planLine(for: plan))
+        case .reading:
+            return todayEntry == nil
+                ? (.notePencil, "Today's note isn't written yet")
+                : (.checkCircle, "Today's note is saved")
+        }
+    }
+
+    private var todayStrip: some View {
+        let status = todayStatus
+        return HStack(spacing: Theme.Spacing.s) {
+            PIconView(status.icon, size: 16, relativeTo: .subheadline)
+            Text(status.text)
+                .font(.selahLabel)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Theme.brandInk)
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.vertical, Theme.Spacing.s)
+        .accessibilityElement(children: .combine)
     }
 
     private func openDay(_ day: Date) {
@@ -401,7 +459,7 @@ struct BookPage: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 if !plan.entries.isEmpty {
-                    Pill(text: "\(plan.entries.count)", icon: .notePencil, tone: tone)
+                    SelahPill("\(plan.entries.count)", icon: .notePencil, style: .accent)
                         .accessibilityLabel("\(plan.entries.count) notes")
                 }
             }
@@ -431,38 +489,47 @@ struct BookPage: View {
         }
     }
 
+    /// A compact note card: the chapter as a red pill beside the verse (or the note's first line), what was written
+    /// greyed underneath on one line, then the date and the verse reference.
     private func noteRow(_ entry: StudyEntry) -> some View {
-        let dateText = entry.date.formatted(date: .abbreviated, time: .omitted)
+        let dateText = entry.date.formatted(.dateTime.day().month(.abbreviated))
         let firstLine = StudyActions.firstLine(of: entry.note)
-        return SurfaceCard {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                HStack {
-                    Text(dateText)
-                        .font(.selahLabel.weight(.semibold))
-                    Spacer()
-                    Pill(text: "Chapter \(entry.chapter)", icon: .bookOpen, tone: tone)
-                }
-                if let verse = entry.bestVerse {
-                    Text(verse.textSnapshot)
-                        .font(.selahVerseCompact)
-                        .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
-                    Text(verse.reference)
-                        .font(.selahLabelSmall)
-                        .foregroundStyle(.secondary)
-                }
-                if !firstLine.isEmpty {
-                    Text(firstLine)
-                        .font(.selahLabel)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+        let verse = entry.bestVerse
+        let title = verse?.textSnapshot ?? (firstLine.isEmpty ? "Chapter \(entry.chapter) note" : firstLine)
+        let greyed = verse == nil ? "" : firstLine
+        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                SelahPill("Chapter \(entry.chapter)", style: .accent)
+                Text(title)
+                    .font(.selahHeadline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if !greyed.isEmpty {
+                Text(greyed)
+                    .font(.selahLabel)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+            }
+            HStack(spacing: Theme.Spacing.s) {
+                PLabel(dateText, icon: .calendarBlank, size: 14, textStyle: .footnote)
+                if let verse {
+                    PLabel(verse.reference, icon: .bookOpen, size: 14, textStyle: .footnote)
+                        .lineLimit(1)
                 }
             }
+            .font(.selahLabelSmall)
+            .foregroundStyle(.secondary)
         }
+        .padding(Theme.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .selahCard()
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(dateText), chapter \(entry.chapter)"
-            + (entry.bestVerse.map { ", best verse \($0.reference)" } ?? "")
+            "Chapter \(entry.chapter), \(dateText)"
+            + (verse.map { ", \($0.reference): \($0.textSnapshot)" } ?? "")
             + (firstLine.isEmpty ? "" : ". \(firstLine)")
         )
         .accessibilityHint("Opens the note")

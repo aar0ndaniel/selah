@@ -91,6 +91,10 @@ struct Backup: Codable, Sendable, Equatable {
         /// Added in Round 2. Optional, so older backups still decode.
         var bannerData: Data? = nil
         var toneRaw: String? = nil
+        /// Added with study titles (Oct 2026). Optional, so older backups still decode.
+        var title: String? = nil
+        var summary: String? = nil
+        var illustrationRaw: String? = nil
     }
 
     struct ServiceDTO: Codable, Sendable, Equatable {
@@ -379,6 +383,9 @@ enum BackupService {
             )
             plan.bannerData = dto.bannerData
             if let toneRaw = dto.toneRaw { plan.toneRaw = toneRaw }
+            plan.title = dto.title ?? ""
+            plan.summary = dto.summary ?? ""
+            plan.illustrationRaw = dto.illustrationRaw ?? ""
             context.insert(plan)
             counts.books += 1
 
@@ -604,7 +611,10 @@ enum BackupService {
                 .sorted { $0.date < $1.date }
                 .map(entryDTO),
             bannerData: plan.bannerData,
-            toneRaw: plan.toneRaw
+            toneRaw: plan.toneRaw,
+            title: plan.title,
+            summary: plan.summary,
+            illustrationRaw: plan.illustrationRaw
         )
     }
 

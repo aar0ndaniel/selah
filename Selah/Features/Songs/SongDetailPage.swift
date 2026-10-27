@@ -148,7 +148,7 @@ struct SongDetailPage: View {
         }
         .padding(Theme.Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+        .selahCard(radius: Theme.Radius.medium)
         .accessibilityElement(children: .combine)
     }
 
@@ -217,7 +217,7 @@ struct SongDetailPage: View {
         }
         .padding(Theme.Spacing.s)
         .frame(minHeight: Theme.minTapTarget)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+        .selahCard(radius: Theme.Radius.medium)
         .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
         .accessibilityElement(children: .combine)
     }

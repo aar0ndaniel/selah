@@ -87,7 +87,7 @@ struct SongCard: View {
         }
         .padding(Theme.Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .selahCard(radius: radius)
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }

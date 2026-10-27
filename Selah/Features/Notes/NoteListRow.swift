@@ -38,7 +38,7 @@ struct NoteCard: View {
         if item.pinned {
             return colorScheme == .dark ? Tone.slate.pillFill : Theme.brandFill
         }
-        return Color(.secondarySystemBackground)
+        return Theme.card
     }
 
     private var layout: AnyLayout {
@@ -79,6 +79,8 @@ struct NoteCard: View {
         .padding(Theme.Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.cardEdge, lineWidth: 0.5) }
+        .shadow(color: Theme.cardShadow, radius: 12, x: 0, y: 4)
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 
