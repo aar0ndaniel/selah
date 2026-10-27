@@ -121,10 +121,10 @@ enum WidgetArt {
         image("Mascot-\(activity)-\(mode)") ?? image("Mascot-\(activity)-coral") ?? mascot(mood: nil, mode: mode)
     }
 
-    /// The mascot holding the flame, when Selah's art for it is in the catalog.
+    /// The mascot holding the flame, when Selah's art for it is in the catalog for this colour. No coral fallback here:
+    /// another colour draws the flame with its own mascot instead.
     static func streakBuddy(lit: Bool, mode: String) -> UIImage? {
-        let state = lit ? "lit" : "off"
-        return image("Streak-\(state)-\(mode)") ?? image("Streak-\(state)-coral")
+        image("Streak-\(lit ? "lit" : "off")-\(mode)")
     }
 
     static func flame(lit: Bool) -> UIImage? {

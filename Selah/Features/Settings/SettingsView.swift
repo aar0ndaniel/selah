@@ -197,7 +197,7 @@ private struct SettingsForm: View {
             }
             .navigationLinkIndicatorVisibility(.hidden)
         } footer: {
-            Text("Silence your phone and hide social apps while you study or at services, using a Focus.")
+            Text("Set up an iPhone Focus that silences notifications and hides social apps while you study or at services.")
         }
     }
 
@@ -515,17 +515,12 @@ private struct SettingsForm: View {
     private var aboutSection: some View {
         Section {
             TileRow(title: "Version", icon: .info, tone: .graphite, value: versionText)
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text("Bible translations")
-                    .font(.selahLabel.weight(.semibold))
-                Text("King James Version (KJV): public domain.")
-                Text("American Standard Version (ASV, 1901): public domain.")
-                Text("World English Bible (WEB): public domain, from eBible.org. \"World English Bible\" is a trademark of eBible.org.")
-                Text("Berean Standard Bible (BSB): public domain, released by Berean Bible.")
+            NavigationLink {
+                CreditsView()
+            } label: {
+                TileRow(title: "Credits and licences", icon: .book, tone: .graphite, showsChevron: true)
             }
-            .font(.selahLabelSmall)
-            .foregroundStyle(.secondary)
-            .padding(.vertical, Theme.Spacing.xxs)
+            .navigationLinkIndicatorVisibility(.hidden)
         } header: {
             Text("About")
         }
