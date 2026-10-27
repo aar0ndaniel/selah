@@ -34,21 +34,24 @@ jobs:
           test -f .build/Payload/Selah.app/bible.sqlite || { echo "::error::bible.sqlite missing from Selah.app"; exit 1; }
           APPEX=.build/Payload/Selah.app/PlugIns/SelahWidgets.appex
           test -d "$APPEX" || { echo "::error::SelahWidgets.appex missing from Selah.app"; exit 1; }
-          # Ad-hoc sign with the app group entitlements so the re-signing tool (Sideloadly) keeps the shared
-          # container the widgets read. The extension first, then the app around it.
-          codesign --force --sign - --entitlements Config/SelahWidgets.entitlements "$APPEX"
-          codesign --force --sign - --entitlements Config/Selah.entitlements .build/Payload/Selah.app
-          codesign -d --entitlements - .build/Payload/Selah.app 2>/dev/null | grep -q "group.com.aarondaniel.selah" || { echo "::error::app group entitlement missing"; exit 1; }
-          cd .build
-          zip -qr Selah.ipa Payload
-          ls -lh Selah.ipa
+          # Selah.ipa: unsigned, like every IPA that installed through Sideloadly before the widgets.
+          (cd .build && zip -qr Selah.ipa Payload)
+          # Selah-adhoc.ipa: ad-hoc signed with the app group entitlements, so a re-signing tool can keep the shared
+          # container the widgets read. Sideloadly rejected this one once (0xe8008014), so it is the second choice.
+          mkdir -p .build/adhoc && cp -r .build/Payload .build/adhoc/
+          codesign --force --sign - --entitlements Config/SelahWidgets.entitlements .build/adhoc/Payload/Selah.app/PlugIns/SelahWidgets.appex
+          codesign --force --sign - --entitlements Config/Selah.entitlements .build/adhoc/Payload/Selah.app
+          (cd .build/adhoc && zip -qr ../Selah-adhoc.ipa Payload)
+          ls -lh .build/Selah.ipa .build/Selah-adhoc.ipa
       - name: Upload iOS IPA artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         continue-on-error: true
         with:
           name: Selah-iOS-IPA
           retention-days: 3
-          path: .build/Selah.ipa
+          path: |
+            .build/Selah.ipa
+            .build/Selah-adhoc.ipa
           if-no-files-found: error
       # Cheap check on every push (~1 min): compile app + tests for the simulator, no boot.
       - name: Compile tests (no simulator)
