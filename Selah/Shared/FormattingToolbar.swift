@@ -6,7 +6,7 @@ import UIKit
 /// keyboard-coloured strip). Inside it a capsule (inset 12pt from the sides, 8pt above the keyboard, 52pt high)
 /// holds the tools in groups with thin dividers: Bold, Italic, Underline | Heading, Quote | Bulleted list,
 /// Numbered list | Highlight and comment. A round Done button is pinned at the trailing end; the tools scroll
-/// sideways on narrow phones. The capsule is a solid `secondarySystemBackground` fill with a soft shadow in light
+/// sideways on narrow phones. The capsule is a solid white (dark: #2C2C2E) fill with a soft shadow in light
 /// mode and a hairline in dark mode. Every button is 44 x 44pt with a 20pt icon and a VoiceOver label. A toggle
 /// that is on shows its icon in BrandInk on a BrandFill rounded square, carries the `selected` trait and has the
 /// accessibility value "On", so the state is not told by colour alone.
@@ -146,7 +146,7 @@ final class FormattingToolbar: UIView {
         doneConfiguration.image = Self.icon(.x)
         doneConfiguration.cornerStyle = .capsule
         doneConfiguration.baseForegroundColor = .label
-        doneConfiguration.background.backgroundColor = .tertiarySystemFill
+        doneConfiguration.background.backgroundColor = UIColor(named: "BrandFill") ?? .tertiarySystemFill
         doneConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
         doneButton.configuration = doneConfiguration
         doneButton.accessibilityLabel = "Done"
@@ -243,7 +243,8 @@ final class FormattingToolbar: UIView {
     /// Soft shadow in light mode, hairline in dark mode (shadows are invisible on dark backgrounds).
     private func applyAppearance() {
         let dark = traitCollection.userInterfaceStyle == .dark
-        capsule.backgroundColor = .secondarySystemBackground
+        // White in light mode (no grey), the iOS raised dark grey in dark mode.
+        capsule.backgroundColor = dark ? UIColor(red: 44 / 255, green: 44 / 255, blue: 46 / 255, alpha: 1) : .white
         capsule.layer.shadowColor = UIColor.black.cgColor
         capsule.layer.shadowOpacity = dark ? 0 : 0.14
         capsule.layer.shadowRadius = 12

@@ -142,8 +142,11 @@ final class ServiceFlowShots: XCTestCase {
     @MainActor
     private func dismissKeyboard(_ app: XCUIApplication) {
         if app.keyboards.firstMatch.exists {
-            if app.buttons["keyboard-done"].exists && app.buttons["keyboard-done"].isHittable {
-                app.buttons["keyboard-done"].tap()
+            // Asking `isHittable` can itself fail while the keyboard animates, so tap by position when the button
+            // has a real frame.
+            let done = app.buttons["keyboard-done"]
+            if done.exists && !done.frame.isEmpty {
+                done.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             } else if app.toolbars.buttons["Done"].exists {
                 app.toolbars.buttons["Done"].tap()
             } else if app.buttons["format-done"].exists {

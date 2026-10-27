@@ -78,11 +78,10 @@ struct SurfaceCard<Content: View>: View {
     }
 }
 
-/// Coloured content card: `tone.fill` background, radius 20, no shadow (the tint is the separation).
-/// In light mode the fill is a pale tint of the tone. In dark mode it is the same neutral #1C1C1E for every tone
-/// (like an iOS Settings card), with no border: the colour then lives only in `tone.ink` icons and tiny labels.
-/// Callers choose text colours: `.primary` for body text, `tone.onSurface` for titles, `tone.ink` for icons and short
-/// labels, `tone.inkSecondary` for quieter text. Never use system `.secondary` on a light tone fill.
+/// Hero card in the focus-card style (owner, 27 Oct): the same warm tinted frame as the study focus card, and the
+/// content on a Liquid Glass panel inset inside it (the frame is what the glass refracts). Dark mode follows iOS: a
+/// neutral #1C1C1E frame with a lifted glass panel. Callers choose text colours: `.primary` for body text,
+/// `tone.onSurface` for titles, `tone.ink` for icons and short labels, `tone.inkSecondary` for quieter text.
 struct ToneCard<Content: View>: View {
     private let tone: Tone
     private let padding: CGFloat
@@ -95,26 +94,45 @@ struct ToneCard<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padding)
-            .background(
-                tone.fill,
-                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            )
+        content.toneCard(tone, padding: padding)
     }
 }
 
+extension Theme {
+    /// Tint for glass panels on a tinted frame: mostly white in light mode, a lifted grey in dark mode.
+    /// The warm frame behind glass cards (same as the study focus card): pale blush to near white; dark #1C1C1E.
+    static let frameTop = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.110, green: 0.110, blue: 0.118, alpha: 1)
+            : UIColor(red: 0.949, green: 0.886, blue: 0.894, alpha: 1)
+    })
+    static let frameBottom = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.086, green: 0.086, blue: 0.094, alpha: 1)
+            : UIColor(red: 0.976, green: 0.953, blue: 0.957, alpha: 1)
+    })
+    static let glassTint = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.22, alpha: 0.55) : UIColor(white: 1, alpha: 0.6)
+    })
+}
+
 extension View {
-    /// Draws the view on a tone-coloured card (same look as `ToneCard`), without wrapping it.
+    /// Draws the view as a `ToneCard`: a glass panel inside the warm frame. `tone` is kept for callers, which use it
+    /// for their ink colours.
     func toneCard(_ tone: Tone, padding: CGFloat = Theme.Spacing.m) -> some View {
         self
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(padding)
+            .glassEffect(.regular.tint(Theme.glassTint), in: .rect(cornerRadius: 22))
+            .padding(6)
             .background(
-                tone.fill,
-                in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                LinearGradient(colors: [Theme.frameTop, Theme.frameBottom], startPoint: .top, endPoint: .bottom),
+                in: RoundedRectangle(cornerRadius: 28, style: .continuous)
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(Theme.cardEdge, lineWidth: 0.5)
+            }
     }
 }
 

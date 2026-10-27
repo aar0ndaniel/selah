@@ -287,7 +287,7 @@ struct BookPage: View {
             .foregroundStyle(isRead ? Color(.systemBackground) : Color.primary)
             .frame(width: circleSize, height: circleSize)
             .background(
-                Circle().fill(isRead ? Color.accentColor : Color(.tertiarySystemFill))
+                Circle().fill(isRead ? Color.accentColor : Theme.accent.opacity(0.08))
             )
             .overlay(
                 Circle().strokeBorder(Color.accentColor.opacity(isRead ? 0 : 0.5), lineWidth: 1)

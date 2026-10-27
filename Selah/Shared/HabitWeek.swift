@@ -160,7 +160,7 @@ struct HabitWeekCard: View {
                 .frame(width: circle, height: circle)
         case .none:
             Circle()
-                .fill(Color(.tertiarySystemFill))
+                .fill(Theme.accent.opacity(0.18))
                 .frame(width: 8, height: 8)
                 .frame(width: circle, height: circle)
         }

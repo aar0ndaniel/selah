@@ -3,7 +3,7 @@ import SwiftUI
 /// A rounded-square tile with the mascot doing something. It replaces the Phosphor glyph tile on note cards, song
 /// cards and the next-gathering card.
 ///
-/// Light mode: the user's mascot colour at about 22% over `secondarySystemBackground`. Dark mode: the raised neutral
+/// Light mode: the user's mascot colour at about 22% over white. Dark mode: the raised neutral
 /// grey (#2C2C2E), like the other tiles, with the mascot keeping its own colours.
 /// Static by default (no idle motion), because tiles repeat in lists.
 struct MascotTile: View {
@@ -37,9 +37,10 @@ struct MascotTile: View {
         if colorScheme == .dark {
             shape.fill(Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255))
         } else {
+            // A soft tint of the mascot's colour on white (owner: no grey tiles).
             shape
-                .fill(Color(.secondarySystemBackground))
-                .overlay { shape.fill(mode.body.opacity(0.22)) }
+                .fill(Color.white)
+                .overlay { shape.fill(mode.body.opacity(0.35)) }
         }
     }
 }
