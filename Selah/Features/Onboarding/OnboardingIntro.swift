@@ -114,17 +114,17 @@ private struct IntroPageView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .bottom) {
-                    scene
-                        .frame(maxWidth: .infinity)
-                        .frame(height: typeSize.isAccessibilitySize ? 220 : 340)
-                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                    preview
-                        .padding(.horizontal, Theme.Spacing.l)
-                        .offset(y: 36)
-                }
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.bottom, 36 + Theme.Spacing.l)
+                // The preview sits inside the scene's calm bottom quarter (Selah keeps it clear for this).
+                scene
+                    .frame(maxWidth: .infinity)
+                    .frame(height: typeSize.isAccessibilitySize ? 260 : 380)
+                    .overlay(alignment: .bottom) {
+                        preview
+                            .padding(Theme.Spacing.s)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .padding(.bottom, Theme.Spacing.l)
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                     Text(page.eyebrow)
@@ -189,23 +189,26 @@ private struct IntroPageView: View {
     }
 
     private var songsPreview: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            MascotTile(activity: .headset, size: 48)
+        HStack(alignment: .center, spacing: Theme.Spacing.s) {
+            MascotTile(activity: .headset, size: 44)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Amazing grace")
                     .font(.selahCardTitle)
+                    .lineLimit(1)
+                // Pills keep their natural width; they never wrap inside.
                 HStack(spacing: 6) {
                     SelahPill("Hymn 245", style: .neutral)
+                        .fixedSize()
                     SelahPill("Lyrics", icon: .textAlignLeft, style: .soft(.mint))
+                        .fixedSize()
                 }
             }
-            Spacer(minLength: 0)
-            Text("Practise")
-                .font(.selahLabelSmall.weight(.semibold))
+            Spacer(minLength: Theme.Spacing.xs)
+            // Practise, as a play button (as on the song page).
+            PIconView(.play, filled: true, size: 16, relativeTo: .body)
                 .foregroundStyle(Theme.onAccent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Theme.accent, in: Capsule())
+                .frame(width: 40, height: 40)
+                .background(Theme.accent, in: Circle())
         }
     }
 
@@ -218,8 +221,11 @@ private struct IntroPageView: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 6) {
                 SelahPill("Sermon", icon: .bookOpen, style: .accent)
+                    .fixedSize()
                 SelahPill("Bible class", icon: .users, style: .neutral)
+                    .fixedSize()
                 SelahPill("Song", icon: .musicNotes, style: .neutral)
+                    .fixedSize()
             }
         }
     }

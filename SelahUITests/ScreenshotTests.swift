@@ -82,12 +82,14 @@ final class ScreenshotTests: XCTestCase {
             settle()
             snap(app, name)
         }
-        if next.waitForExistence(timeout: 5) {
-            next.tap()
-            _ = app.staticTexts["Welcome to Tehila"].waitForExistence(timeout: 10)
-            settle()
-            snap(app, "07d-onboarding-welcome")
+        // "Get started" can land while the page is still sliding in: tap again until the welcome page shows.
+        let welcome = app.staticTexts["Welcome to Tehila"]
+        for _ in 0..<3 where !welcome.exists {
+            if next.waitForExistence(timeout: 5) { next.tap() }
+            _ = welcome.waitForExistence(timeout: 5)
         }
+        settle()
+        snap(app, "07d-onboarding-welcome")
     }
 
     // MARK: - Dark
