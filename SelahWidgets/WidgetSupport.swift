@@ -163,7 +163,7 @@ extension WidgetSnapshot {
         let monday = calendar.date(byAdding: .day, value: -((weekday + 5) % 7), to: today) ?? today
         let week: [WidgetWeekCell] = (0..<7).map { offset in
             let date = calendar.date(byAdding: .day, value: offset, to: monday) ?? monday
-            WidgetWeekCell(date: date, state: date <= today ? "done" : "none", isToday: date == today)
+            return WidgetWeekCell(date: date, state: date <= today ? "done" : "none", isToday: date == today)
         }
         var snapshot = WidgetSnapshot()
         snapshot.streakDays = [WidgetStreakDay(date: today, current: 5, best: 9, doneToday: true, week: week)]
