@@ -46,7 +46,6 @@ struct TodayView: View {
     @State private var showSettings = false
     @State private var openNote: PersonalNote?
 
-    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var mascotTileSize: CGFloat = 56
     @ScaledMetric(relativeTo: .body) private var mascotWaveSize: CGFloat = 72
     @State private var heatmapYear = Calendar.current.component(.year, from: Date())
@@ -323,74 +322,11 @@ struct TodayView: View {
         }
     }
 
-    @ViewBuilder
+    /// The book being read, as the study focus card: progress, title, description and the today's note button.
     private func readingCard(for plan: ReadingPlan, now: Date) -> some View {
         let existing = entryToday(for: plan)
-        let snapshot = ReadingSnapshot(
-            bookName: plan.bookName,
-            status: plan.status,
-            chaptersRead: plan.chaptersRead,
-            totalChapters: plan.totalChapters,
-            plannedDays: plan.plannedDays,
-            startDate: plan.startDate
-        )
-        if let item = TodaySummary.readingItem(for: snapshot, hasEntryToday: existing != nil, now: now) {
-            let tone = plan.cardTone
-            let total = max(plan.totalChapters, 1)
-            let read = plan.chaptersRead.count
-            ToneCard(tone: tone) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    HStack(alignment: .center, spacing: Theme.Spacing.m) {
-                        ZStack {
-                            Circle().fill(Color(.systemBackground).opacity(0.65))
-                            ProgressRing(
-                                progress: Double(read) / Double(total),
-                                lineWidth: 7,
-                                tone: tone,
-                                centreLabel: "\(read)/\(total)",
-                                accessibilityLabel: "Chapters read",
-                                accessibilityValue: "\(read) of \(total) chapters"
-                            )
-                            .padding(Theme.Spacing.xxs)
-                        }
-                        .frame(width: ringSize, height: ringSize)
-
-                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                            Text(item.bookName)
-                                .font(.selahCardTitle)
-                                .foregroundStyle(tone.onSurface)
-                            Text(item.nextText)
-                                .font(.selahLabel)
-                                .foregroundStyle(.primary)
-                            if let reminders = StudyActions.remindersText(for: plan) {
-                                Text(reminders)
-                                    .font(.selahLabelSmall)
-                                    .foregroundStyle(tone.inkSecondary)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: Theme.Spacing.xs) {
-                            OnCardPill(text: item.dayText, icon: .calendarBlank, tone: tone)
-                            OnCardPill(text: item.paceText, icon: .bookOpen, tone: tone)
-                        }
-                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                            OnCardPill(text: item.dayText, icon: .calendarBlank, tone: tone)
-                            OnCardPill(text: item.paceText, icon: .bookOpen, tone: tone)
-                        }
-                    }
-
-                    Button {
-                        cover = .entry(plan, existing)
-                    } label: {
-                        Text(item.hasEntryToday ? "Open today's note" : "Write today's note")
-                    }
-                    .buttonStyle(.selahPrimaryFull)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        return StudyFocusCard(plan: plan, hasEntryToday: existing != nil) {
+            cover = .entry(plan, existing)
         }
     }
 
