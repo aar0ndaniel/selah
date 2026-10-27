@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// The book you are reading, at a glance (owner's reference, 27 Oct): a soft tinted frame with overall progress on
 /// top, a white card with the book, the study title, a short description, the coral today's note button and the day
@@ -27,12 +28,16 @@ struct StudyFocusCard: View {
         }
         .background(
             LinearGradient(
-                colors: [Theme.brandFill, Theme.brandFill.opacity(0.7)],
+                colors: [FocusPalette.frameTop, FocusPalette.frameBottom],
                 startPoint: .top,
                 endPoint: .bottom
             ),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Theme.cardEdge, lineWidth: 0.5)
+        }
     }
 
     // MARK: Top strip
@@ -41,21 +46,22 @@ struct StudyFocusCard: View {
         HStack(spacing: Theme.Spacing.s) {
             ZStack {
                 Circle()
-                    .stroke(Theme.brandInk.opacity(0.2), lineWidth: 2.5)
+                    .stroke(Color.primary.opacity(0.15), lineWidth: 2.5)
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(Theme.brandInk, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .stroke(Color.primary.opacity(0.75), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }
             .frame(width: 16, height: 16)
             Text("Overall progress")
                 .font(.selahLabelSmall)
+                .foregroundStyle(.secondary)
             Spacer(minLength: Theme.Spacing.s)
             Text(percentText)
                 .font(.selahLabelSmall.weight(.semibold))
                 .monospacedDigit()
+                .foregroundStyle(.primary)
         }
-        .foregroundStyle(Theme.brandInk)
         .padding(.horizontal, Theme.Spacing.m)
         .padding(.vertical, 10)
         .accessibilityElement(children: .ignore)
@@ -70,7 +76,7 @@ struct StudyFocusCard: View {
     private var mainCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(hasTitle ? plan.bookName : "Bible study")
-                .font(.selahLabel)
+                .font(.selahLabelSmall)
                 .foregroundStyle(.secondary)
             Text(plan.displayTitle)
                 .font(.custom(SelahFontFamily.display, size: 24, relativeTo: .title2).weight(.medium))
@@ -97,11 +103,12 @@ struct StudyFocusCard: View {
                     dayInfo
                 }
             }
-            .padding(.top, Theme.Spacing.m)
+            .padding(.top, Theme.Spacing.l)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .selahCard(radius: 22)
+        .background(FocusPalette.inner, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Theme.cardShadow, radius: 10, x: 0, y: 3)
     }
 
     /// The coral button, text only: start the book, write today's note, or open it.
@@ -113,13 +120,15 @@ struct StudyFocusCard: View {
                 onToday()
             }
         } label: {
+            // Compact like the reference (40 pt tall); the extra 2 pt above and below keep the 44 pt tap target.
             Text(buttonTitle)
-                .font(.selahButton)
+                .font(.selahLabel.weight(.semibold))
                 .foregroundStyle(Theme.onAccent)
-                .padding(.horizontal, 20)
-                .frame(minHeight: Theme.minTapTarget)
+                .padding(.horizontal, 18)
+                .frame(height: 40)
                 .background(Theme.accent, in: Capsule())
-                .contentShape(Capsule())
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("today-note-button")
@@ -167,23 +176,42 @@ struct StudyFocusCard: View {
             return (.checkCircle, StudyActions.planLine(for: plan))
         case .reading:
             return hasEntryToday
-                ? (.checkCircle, "Today's note is saved")
-                : (.clock, "Today's note isn't written yet")
+                ? (.checkCircle, "Note saved")
+                : (.clock, "Note not written yet")
         }
     }
 
     private var todayStrip: some View {
         let status = status
         return HStack(spacing: Theme.Spacing.s) {
-            PIconView(status.icon, size: 15, relativeTo: .footnote)
+            Text("Today")
+                .foregroundStyle(.secondary)
             Text(status.text)
-                .font(.selahLabelSmall)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
             Spacer(minLength: 0)
+            PIconView(status.icon, size: 15, relativeTo: .footnote)
+                .foregroundStyle(plan.status == .reading && hasEntryToday ? Theme.accent : Color.secondary)
         }
-        .foregroundStyle(Theme.brandInk)
+        .font(.selahLabelSmall)
         .padding(.horizontal, Theme.Spacing.m)
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The focus card's own surfaces: a pale warm frame (like a soft tint of glass) and an inner card that stays clear of
+/// it in both modes. Dark mode follows iOS: the frame is the grouped dark grey, the inner card one step lighter.
+private enum FocusPalette {
+    static let frameTop = dynamic(light: (0.957, 0.925, 0.929), dark: (0.110, 0.110, 0.118))
+    static let frameBottom = dynamic(light: (0.976, 0.961, 0.965), dark: (0.086, 0.086, 0.094))
+    static let inner = dynamic(light: (1, 1, 1), dark: (0.173, 0.173, 0.180))
+
+    private static func dynamic(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)) -> Color {
+        Color(UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
     }
 }
 
