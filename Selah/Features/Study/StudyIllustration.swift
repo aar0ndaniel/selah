@@ -41,7 +41,7 @@ extension ReadingPlan {
     }
 }
 
-/// The picture on a study card: the banner photo, else the chosen illustration, else Selah reading on the card colour.
+/// The picture on a study card: the banner photo, else the chosen illustration, else Selah reading on a soft tint.
 struct StudyArtwork: View {
     let plan: ReadingPlan
 
@@ -55,8 +55,13 @@ struct StudyArtwork: View {
                 .resizable()
                 .scaledToFill()
         } else {
+            // A soft tint for the glass to refract, with Selah reading in the corner.
             ZStack(alignment: .bottomTrailing) {
-                Theme.card
+                LinearGradient(
+                    colors: [Theme.brandFill, Theme.card],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
                 MascotView(activity: .reading, animated: false)
                     .frame(width: 112, height: 112)
                     .padding(Theme.Spacing.s)

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// A pill that sits on a tone card: the card's ink on a lighter wash, so it reads on the tinted fill
 /// (a plain `Pill` would be the same colour as the card).
@@ -25,7 +26,7 @@ struct CardPill: View {
 }
 
 /// One study in the Study list: the picture (photo, illustration, or Selah reading), the book as a red pill, the
-/// study title, a status line, and a light progress ring in glass at the top right.
+/// study title, a status line and a light progress ring, on a Liquid Glass panel over the picture.
 struct BookCard: View {
     let plan: ReadingPlan
 
@@ -59,26 +60,16 @@ struct BookCard: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
         // The picture is a background, so the card's size comes from its text (and the minimum height).
+        // The text sits on a Liquid Glass panel over the picture; the picture is a background, so the card's size
+        // comes from the panel (and the minimum height).
         return header
             .padding(Theme.Spacing.m)
+            .glassEffect(.regular.tint(BookCardGlass.tint), in: .rect(cornerRadius: 18))
+            .padding(10)
             .frame(maxWidth: .infinity, minHeight: typeSize.isAccessibilitySize ? nil : cardHeight, alignment: .topLeading)
             .background {
-                ZStack {
-                    StudyArtwork(plan: plan)
-                    if StudyArtwork.hasPicture(plan) {
-                        // Keeps the title readable over any picture: the card colour fading out from the top.
-                        LinearGradient(
-                            stops: [
-                                .init(color: Theme.card.opacity(0.92), location: 0),
-                                .init(color: Theme.card.opacity(0.6), location: 0.4),
-                                .init(color: Theme.card.opacity(0), location: 0.7)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                }
-                .accessibilityHidden(true)
+                StudyArtwork(plan: plan)
+                    .accessibilityHidden(true)
             }
             .clipShape(shape)
         .selahCard()
@@ -125,11 +116,16 @@ struct BookCard: View {
                 .lineLimit(1)
                 .padding(Theme.Spacing.xs)
         }
-        .padding(5)
         .frame(width: ringSize, height: ringSize)
-        .glassEffect(.regular, in: .circle)
         .accessibilityHidden(true)
     }
+}
+
+/// Tint for the glass panel: a little white in light mode so dark text stays crisp over any picture.
+private enum BookCardGlass {
+    static let tint = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.1, alpha: 0.35) : UIColor(white: 1, alpha: 0.45)
+    })
 }
 
 private struct BookCardPreviewList: View {
