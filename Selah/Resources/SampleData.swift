@@ -110,6 +110,7 @@ enum SampleData {
         )
         philippians.title = "Joy in every season"
         philippians.summary = "Four days with Paul's letter of joy, written from prison."
+        philippians.illustrationRaw = "lamp"
         context.insert(philippians)
         let reminder = ReadingReminder(hour: 7, minute: 0)
         context.insert(reminder)
