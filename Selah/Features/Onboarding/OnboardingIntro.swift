@@ -195,6 +195,7 @@ private struct IntroPageView: View {
                 Text("Amazing grace")
                     .font(.selahCardTitle)
                     .lineLimit(1)
+                    .fixedSize()
                 // Pills keep their natural width; they never wrap inside.
                 HStack(spacing: 6) {
                     SelahPill("Hymn 245", style: .neutral)
@@ -203,11 +204,11 @@ private struct IntroPageView: View {
                         .fixedSize()
                 }
             }
-            Spacer(minLength: Theme.Spacing.xs)
+            Spacer(minLength: Theme.Spacing.xxs)
             // Practise, as a play button (as on the song page).
-            PIconView(.play, filled: true, size: 16, relativeTo: .body)
+            PIconView(.play, filled: true, size: 14, relativeTo: .body)
                 .foregroundStyle(Theme.onAccent)
-                .frame(width: 40, height: 40)
+                .frame(width: 36, height: 36)
                 .background(Theme.accent, in: Circle())
         }
     }
