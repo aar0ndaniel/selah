@@ -107,8 +107,8 @@ struct StudyFocusCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FocusPalette.inner, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Theme.cardShadow, radius: 10, x: 0, y: 3)
+        // Liquid Glass over the tinted frame (the frame is what the glass refracts), lightly tinted so text stays crisp.
+        .glassEffect(.regular.tint(FocusPalette.glassTint), in: .rect(cornerRadius: 22))
     }
 
     /// The coral button, text only: start the book, write today's note, or open it.
@@ -120,17 +120,14 @@ struct StudyFocusCard: View {
                 onToday()
             }
         } label: {
-            // Compact like the reference (40 pt tall); the extra 2 pt above and below keep the 44 pt tap target.
             Text(buttonTitle)
                 .font(.selahLabel.weight(.semibold))
-                .foregroundStyle(Theme.onAccent)
-                .padding(.horizontal, 18)
-                .frame(height: 40)
-                .background(Theme.accent, in: Capsule())
-                .padding(.vertical, 2)
-                .contentShape(Rectangle())
+                .padding(.horizontal, 4)
+                .frame(minHeight: 32)
         }
-        .buttonStyle(.plain)
+        // The one primary action here: Apple's prominent Liquid Glass button in the accent.
+        .buttonStyle(.glassProminent)
+        .tint(Theme.accent)
         .accessibilityIdentifier("today-note-button")
     }
 
@@ -203,9 +200,13 @@ struct StudyFocusCard: View {
 /// The focus card's own surfaces: a pale warm frame (like a soft tint of glass) and an inner card that stays clear of
 /// it in both modes. Dark mode follows iOS: the frame is the grouped dark grey, the inner card one step lighter.
 private enum FocusPalette {
-    static let frameTop = dynamic(light: (0.957, 0.925, 0.929), dark: (0.110, 0.110, 0.118))
-    static let frameBottom = dynamic(light: (0.976, 0.961, 0.965), dark: (0.086, 0.086, 0.094))
+    static let frameTop = dynamic(light: (0.949, 0.886, 0.894), dark: (0.110, 0.110, 0.118))
+    static let frameBottom = dynamic(light: (0.976, 0.953, 0.957), dark: (0.086, 0.086, 0.094))
     static let inner = dynamic(light: (1, 1, 1), dark: (0.173, 0.173, 0.180))
+    /// Tint for the glass card: mostly white in light mode, a lifted grey in dark mode.
+    static let glassTint = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.22, alpha: 0.55) : UIColor(white: 1, alpha: 0.6)
+    })
 
     private static func dynamic(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)) -> Color {
         Color(UIColor { traits in
