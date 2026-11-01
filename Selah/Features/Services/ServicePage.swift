@@ -599,6 +599,11 @@ private struct ServiceTalkFields: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// The verse open for reading in full.
+    @State private var readingVerse: VerseRef?
+    /// More than this many verses fold into a native disclosure row, so a sermon doesn't run long.
+    private let foldAfter = 4
+    @State private var versesExpanded = false
 
     private var isSermon: Bool { part.kind == .sermon }
 
@@ -620,8 +625,21 @@ private struct ServiceTalkFields: View {
             focus: focus,
             identifier: "field-part-person-\(index)"
         )
-        ForEach(part.verses) { verse in
-            verseRow(verse)
+        if part.verses.count > foldAfter {
+            DisclosureGroup(isExpanded: $versesExpanded) {
+                ForEach(part.verses) { verse in
+                    verseRow(verse)
+                }
+            } label: {
+                PLabel("Verses \u{00B7} \(part.verses.count)", icon: .bookOpen, size: 18)
+                    .font(.selahBody.weight(.semibold))
+                    .frame(minHeight: Theme.minTapTarget, alignment: .leading)
+            }
+            .accessibilityIdentifier("verses-\(index)")
+        } else {
+            ForEach(part.verses) { verse in
+                verseRow(verse)
+            }
         }
         Button(action: onAddVerse) {
             PLabel("Add verse", icon: .plus, size: 18)
@@ -639,22 +657,40 @@ private struct ServiceTalkFields: View {
             embedded: true
         )
         .padding(.vertical, Theme.Spacing.xs)
+        .sheet(item: $readingVerse) { verse in
+            VerseReaderSheet(verse: verse)
+        }
     }
 
+    /// A verse, cut to three lines; tap it to read the whole passage.
     private func verseRow(_ verse: VerseRef) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-            Text(verse.reference)
-                .font(.selahLabel.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-            if !verse.textSnapshot.isEmpty {
-                Text(verse.textSnapshot)
-                    .font(.selahVerseCompact)
-                    .foregroundStyle(.primary)
-                    .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
+        Button {
+            readingVerse = verse
+        } label: {
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                    Text(verse.reference)
+                        .font(.selahLabel.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                    if !verse.textSnapshot.isEmpty {
+                        Text(verse.textSnapshot)
+                            .font(.selahVerseCompact)
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(typeSize.isAccessibilitySize ? nil : 3)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                PIconView(.caretRight, size: 14, relativeTo: .footnote)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
             }
+            .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget, alignment: .leading)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens the verse to read in full")
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 modelContext.delete(verse)

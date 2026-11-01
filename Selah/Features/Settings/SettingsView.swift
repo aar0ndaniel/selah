@@ -30,6 +30,10 @@ struct SettingsView: View {
                 }
             }
         }
+        // A new mascot colour recolours the whole app once Settings has closed.
+        .onDisappear {
+            NotificationCenter.default.post(name: AccentPalette.refresh, object: nil)
+        }
     }
 }
 
@@ -343,7 +347,7 @@ private struct SettingsForm: View {
         } header: {
             Text("Mascot")
         } footer: {
-            Text("Selah, your mascot, and the app icon follow this colour.")
+            Text("Selah, the app icon and the app's accent colour follow this colour.")
         }
     }
 

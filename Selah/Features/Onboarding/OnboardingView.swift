@@ -534,6 +534,8 @@ private struct OnboardingPages: View {
     private func finish() {
         profile.onboarded = true
         try? modelContext.save()
+        // The colour picked on the welcome page becomes the app's accent.
+        NotificationCenter.default.post(name: AccentPalette.refresh, object: nil)
     }
 }
 

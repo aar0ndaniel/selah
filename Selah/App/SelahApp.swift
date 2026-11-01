@@ -32,12 +32,25 @@ private struct AppRoot: View {
     let launch: LaunchOptions
     let testContainer: ModelContainer?
 
+    /// The mascot colour the accent was last drawn with. The accent follows Selah's colour; when it changes, the
+    /// screens are rebuilt once (on Settings closing, onboarding finishing, or the app coming back) so every view picks
+    /// it up, without rebuilding under an open sheet.
+    @State private var appliedMode = AccentPalette.current
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         root
+            .id(appliedMode)
             // The asset-catalog global accent wasn't being applied (screens rendered system blue),
             // so set it explicitly: `.tint` drives controls, `.accentColor` drives `Color.accentColor`.
             .tint(Theme.accent)
             .accentColor(Theme.accent)
+            .onReceive(NotificationCenter.default.publisher(for: AccentPalette.refresh)) { _ in
+                appliedMode = AccentPalette.current
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { appliedMode = AccentPalette.current }
+            }
     }
 
     @ViewBuilder

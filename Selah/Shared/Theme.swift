@@ -8,17 +8,17 @@ import CoreText
 /// The full system (tones with hex values, contrast table, type scale, buttons, icons) is written up in
 /// docs/DESIGN-SYSTEM.md.
 enum Theme {
-    /// The brand accent #D33E43 (dark mode #E2585D), read straight from the asset catalog.
+    /// The accent, following Selah's colour (`AccentPalette`; coral is #D33E43, dark mode #E2585D).
     /// Interactive elements only; never a page background.
-    static let accent = Color("AccentColor")
-    /// Label and icon colour for anything filled with `accent` (Material "on-primary"): white on #D33E43 in light mode
-    /// (4.6:1), deep red #2A0004 on #E2585D in dark mode (5.3:1). White on the dark accent would only be 3.6:1.
-    static let onAccent = Color("AccentOn")
-    /// Quiet accent container for secondary buttons and selected toggles (light #FBE9EA / dark #2C2C2E, a neutral
-    /// raised grey like iOS Settings; the red lives in `brandInk`).
-    static let brandFill = Color("BrandFill")
-    /// Accent ink on `brandFill` (light #A42A2F / dark #FFB3B1): 6.1:1 light, 8.2:1 dark.
-    static let brandInk = Color("BrandInk")
+    static let accent = AccentPalette.dynamic(light: { $0.accent }, dark: { $0.darkAccent })
+    /// Label and icon colour for anything filled with `accent` (Material "on-primary"): white in light mode, a deep ink
+    /// of the same hue on the lighter dark-mode accent (white there would be too faint).
+    static let onAccent = AccentPalette.dynamic(light: { _ in 0xFFFFFF }, dark: { $0.onDarkAccent })
+    /// Quiet accent container for secondary buttons and selected toggles (a pale tint of the accent; dark mode #2C2C2E,
+    /// a neutral raised grey like iOS Settings, with the colour in `brandInk`).
+    static let brandFill = AccentPalette.dynamic(light: { $0.fill }, dark: { _ in 0x2C2C2E })
+    /// Accent ink on `brandFill`: a deeper accent in light mode, a light one in dark mode.
+    static let brandInk = AccentPalette.dynamic(light: { $0.ink }, dark: { $0.darkInk })
 
     /// 8pt grid.
     enum Spacing {
@@ -325,10 +325,10 @@ enum NavigationAppearance {
         bar.compactAppearance = appearance
 
         // UIKit pieces (text view caret/selection, bar buttons, tab bar) use the accent too.
-        if let accent = UIColor(named: "AccentColor") {
-            UIView.appearance().tintColor = accent
-            UITabBar.appearance().tintColor = accent
-        }
+        // Follows Selah's colour (resolved each time UIKit draws).
+        let accent = UIColor(Theme.accent)
+        UIView.appearance().tintColor = accent
+        UITabBar.appearance().tintColor = accent
         // scrollEdgeAppearance is left nil on purpose: UIKit then derives it from `standardAppearance`
         // with the transparent large-title background, keeping the title attributes.
     }

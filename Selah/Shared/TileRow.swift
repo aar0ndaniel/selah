@@ -4,8 +4,8 @@ import SwiftUI
 /// count badge and chevron. Use inside `List` / `Form` sections with the system inset grouped style (the system draws
 /// the large corner radius, hairline separators and grouped background; nothing is faked here).
 ///
-/// Light mode: `tone.fill` tile with the `tone.ink` glyph. Dark mode: a neutral raised tile (#2C2C2E) with the light
-/// tonal `tone.ink` glyph; colour lives only in the glyph, like iOS Settings.
+/// The tile is a solid colour square with a white glyph, exactly like the icons in iOS Settings (owner, 1 Nov), in both
+/// light and dark mode.
 /// Never use `.sky` (it is blue); use brand/coral/sage/rose/sand/mint/slate (graphite).
 
 /// How a tile row is tinted. `brand` uses the accent pair instead of a tone.
@@ -34,6 +34,24 @@ enum TileTone: Hashable, Sendable {
         case .tone(let tone): return tone.ink
         }
     }
+
+    /// The solid tile colour (white glyph on top, at least 3:1 for the glyph like Settings' own tiles). No blue,
+    /// purple, gold or yellow: sky is drawn as graphite.
+    var solid: Color {
+        switch self {
+        case .brand: return Theme.accent
+        case .tone(let tone):
+            switch tone {
+            case .coral: return Color(red: 0.91, green: 0.42, blue: 0.29)   // #E86B4A
+            case .sage: return Color(red: 0.24, green: 0.60, blue: 0.39)    // #3D9963
+            case .rose: return Color(red: 0.85, green: 0.28, blue: 0.42)    // #D9486B
+            case .sand: return Color(red: 0.69, green: 0.48, blue: 0.24)    // #B07A3D
+            case .mint: return Color(red: 0.18, green: 0.62, blue: 0.56)    // #2E9E8F
+            case .teal: return Color(red: 0.12, green: 0.54, blue: 0.54)    // #1F8A8A
+            case .slate, .sky: return Color(red: 0.56, green: 0.56, blue: 0.58) // #8E8E93
+            }
+        }
+    }
 }
 
 /// The leading tile alone, for custom rows.
@@ -44,11 +62,11 @@ struct TileIcon: View {
     @ScaledMetric(relativeTo: .body) private var side: CGFloat = 30
 
     var body: some View {
-        PIconView(icon, filled: false, size: 18, relativeTo: .body)
-            .foregroundStyle(tone.ink)
+        PIconView(icon, filled: true, size: 18, relativeTo: .body)
+            .foregroundStyle(.white)
             .frame(width: side, height: side)
             .background(
-                tone.fill,
+                tone.solid,
                 in: RoundedRectangle(cornerRadius: side * 0.27, style: .continuous)
             )
             .accessibilityHidden(true)

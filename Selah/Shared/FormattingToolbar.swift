@@ -146,7 +146,7 @@ final class FormattingToolbar: UIView {
         doneConfiguration.image = Self.icon(.x)
         doneConfiguration.cornerStyle = .capsule
         doneConfiguration.baseForegroundColor = .label
-        doneConfiguration.background.backgroundColor = UIColor(named: "BrandFill") ?? .tertiarySystemFill
+        doneConfiguration.background.backgroundColor = UIColor(Theme.brandFill)
         doneConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
         doneButton.configuration = doneConfiguration
         doneButton.accessibilityLabel = "Done"
@@ -270,9 +270,9 @@ final class FormattingToolbar: UIView {
         configuration.cornerStyle = .fixed
         configuration.background.cornerRadius = 12
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12)
-        configuration.baseForegroundColor = selected ? (UIColor(named: "BrandInk") ?? .label) : .label
+        configuration.baseForegroundColor = selected ? UIColor(Theme.brandInk) : .label
         configuration.background.backgroundColor = selected
-            ? (UIColor(named: "BrandFill") ?? .secondarySystemFill)
+            ? UIColor(Theme.brandFill)
             : .clear
         button.configuration = configuration
         button.isSelected = selected
