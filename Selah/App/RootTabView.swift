@@ -181,7 +181,9 @@ struct RootTabView: View {
         Label {
             Text(tab.title)
         } icon: {
-            Image(picon: tab.icon, filled: tab == selected)
+            // Tehila's own tab icons, drawn by Selah: outline when idle, filled when selected.
+            Image("tab-\(tab.title.lowercased())-\(tab == selected ? "fill" : "outline")")
+                .renderingMode(.template)
         }
         .accessibilityIdentifier(tab.identifier)
     }
