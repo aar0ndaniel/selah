@@ -181,9 +181,21 @@ struct RootTabView: View {
         Label {
             Text(tab.title)
         } icon: {
-            // Tehila's own tab icons, drawn by Selah: outline when idle, filled when selected.
-            Image("tab-\(tab.title.lowercased())-\(tab == selected ? "fill" : "outline")")
-                .renderingMode(.template)
+            let name = tab.title.lowercased()
+            if let object = UIImage(named: "Tab3D-\(name)") {
+                // Selah's little 3D objects (Airbnb style): full colour when selected, greyscale when idle.
+                Image(uiImage: object)
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .saturation(tab == selected ? 1 : 0)
+                    .opacity(tab == selected ? 1 : 0.55)
+            } else {
+                // Selah's line icons: outline when idle, filled when selected.
+                Image("tab-\(name)-\(tab == selected ? "fill" : "outline")")
+                    .renderingMode(.template)
+            }
         }
         .accessibilityIdentifier(tab.identifier)
     }
