@@ -36,7 +36,6 @@ enum WidgetSync {
         let services = (try? context.fetch(FetchDescriptor<Service>())) ?? []
         let meetingDays = (try? context.fetch(FetchDescriptor<MeetingDay>())) ?? []
         let moods = (try? context.fetch(FetchDescriptor<MoodEntry>())) ?? []
-        let translation = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first?.translation ?? .kjv
 
         let defaults = UserDefaults.standard
         let kind = StreakKind(rawValue: defaults.string(forKey: StreakKind.storageKey) ?? "") ?? .study
@@ -48,11 +47,9 @@ enum WidgetSync {
             .compactMap { $0.bestVerse }
             .first
             .map { WidgetSnapshotBuilder.Passage(text: $0.textSnapshot, reference: "\($0.reference) (\($0.translation.shortName))") }
-        let passages = PopularPassages.all.map { ref in
-            WidgetSnapshotBuilder.Passage(
-                text: BibleStore.shared.text(for: ref, translation: translation),
-                reference: "\(ref.displayString) (\(translation.shortName))"
-            )
+        // The same built-in verses as Today and the widget's own fallback, so all three always show the same verse.
+        let passages = WidgetFallbackVerses.all.map {
+            WidgetSnapshotBuilder.Passage(text: $0.text, reference: $0.reference)
         }
         let todayMood = moods
             .filter { calendar.isDate($0.date, inSameDayAs: now) }

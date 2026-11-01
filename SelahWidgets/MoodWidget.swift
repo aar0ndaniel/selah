@@ -36,6 +36,12 @@ struct MoodWidgetView: View {
                 Text("Today")
                     .font(.widgetText(11, relativeTo: .caption2))
                     .foregroundStyle(.secondary)
+            } else if AppGroup.identifier == nil {
+                // No shared space: the widget can't see today's answer, so don't ask the question again.
+                Text("Your mood shows here in the App Store version")
+                    .font(.widgetText(12, relativeTo: .footnote).weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             } else {
                 Text("How are you feeling?")
                     .font(.widgetText(13, relativeTo: .footnote).weight(.semibold))

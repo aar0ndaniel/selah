@@ -132,7 +132,11 @@ struct StreakWidgetView: View {
         VStack(spacing: 6) {
             StreakArtwork(lit: false, mode: mode)
                 .frame(height: 56)
-            Text("Open Tehila to see your streak")
+            // Without the shared space (some sideloading tools drop it) the widget can never get the data, so say so
+            // plainly instead of asking the user to open the app again and again.
+            Text(AppGroup.identifier == nil
+                 ? "Your streak shows here in the App Store version"
+                 : "Open Tehila to see your streak")
                 .font(.widgetText(12, relativeTo: .caption).weight(.semibold))
                 .foregroundStyle(WidgetPalette.streakLabel)
                 .multilineTextAlignment(.center)

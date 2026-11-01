@@ -207,74 +207,51 @@ struct TodayView: View {
 
     // MARK: Verse of the day
 
-    @ViewBuilder
-    private var verseCard: some View {
+    /// Today's verse: the one the user picked, else the built-in verse of the day, the same one the verse widget
+    /// shows, so the app and the widget always agree.
+    private var todayVerse: (text: String, reference: String, chosen: Bool) {
         if let verse = verseEntryToday?.bestVerse {
-            let reference = "\(verse.reference) (\(verse.translation.shortName))"
-            // Centred and airy on the plain page, no card (docs/UI-REFERENCES.md section 1).
+            return (verse.textSnapshot, "\(verse.reference) (\(verse.translation.shortName))", true)
+        }
+        let builtIn = WidgetFallbackVerses.verse(on: Date())
+        return (builtIn.text, builtIn.reference, false)
+    }
+
+    private var verseCard: some View {
+        let verse = todayVerse
+        // Centred and airy on the page, no card (docs/UI-REFERENCES.md section 1).
+        return VStack(spacing: Theme.Spacing.s) {
+            PIconView(.sparkle, filled: true, size: 20, relativeTo: .title3)
+                .foregroundStyle(Theme.accent)
+            Text("Verse of the day")
+                .selahEyebrow()
+                .accessibilityAddTraits(.isHeader)
+
             VStack(spacing: Theme.Spacing.s) {
-                PIconView(.sparkle, filled: true, size: 20, relativeTo: .title3)
-                    .foregroundStyle(Theme.accent)
-                Text("Verse of the day")
-                    .selahEyebrow()
-                    .accessibilityAddTraits(.isHeader)
-
-                VStack(spacing: Theme.Spacing.s) {
-                    Text(verse.textSnapshot)
-                        .font(.selahVerse)
-                        .lineSpacing(5)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    SelahPill(reference, style: .neutral)
-                }
-                .accessibilityElement(children: .combine)
-
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: Theme.Spacing.xs) {
-                        shareButton(text: verse.textSnapshot, reference: reference)
-                        changeVerseButton
-                    }
-                    VStack(spacing: 0) {
-                        shareButton(text: verse.textSnapshot, reference: reference)
-                        changeVerseButton
-                    }
-                }
+                Text(verse.text)
+                    .font(.selahVerse)
+                    .lineSpacing(5)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                SelahPill(verse.reference, style: .neutral)
             }
-            .padding(.horizontal, Theme.Spacing.s)
-            .padding(.vertical, Theme.Spacing.m)
-            .frame(maxWidth: .infinity)
-        } else if plans.isEmpty {
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    Text("Verse of the day")
-                        .font(.selahCardTitle)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Start a book in Study first")
-                        .font(.selahBody)
-                    Button("Go to Study") { router.selectedTab = .study }
-                        .buttonStyle(.selahSecondary(tone: .sand))
+            .accessibilityElement(children: .combine)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    shareButton(text: verse.text, reference: verse.reference)
+                    changeVerseButton(chosen: verse.chosen)
                 }
-            }
-        } else {
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    Text("Verse of the day")
-                        .font(.selahCardTitle)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Pick a verse that spoke to you today.")
-                        .font(.selahBody)
-                    Button("Choose today's verse") {
-                        if readingPlans.isEmpty {
-                            router.selectedTab = .study
-                        } else {
-                            showVersePicker = true
-                        }
-                    }
-                    .buttonStyle(.selahSecondary(tone: .sand))
+                VStack(spacing: 0) {
+                    shareButton(text: verse.text, reference: verse.reference)
+                    changeVerseButton(chosen: verse.chosen)
                 }
             }
         }
+        .padding(.horizontal, Theme.Spacing.s)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(maxWidth: .infinity)
     }
 
     /// Small tertiary action: accent text with an icon, no container.
@@ -291,9 +268,17 @@ struct TodayView: View {
         .accessibilityLabel("Share verse")
     }
 
-    private var changeVerseButton: some View {
-        Button("Change verse") { showVersePicker = true }
-            .buttonStyle(.selahTertiary)
+    /// "Change verse" once the user picked one; "Choose your own" over the built-in verse. Picking needs a book in
+    /// progress, so without one it opens Study.
+    private func changeVerseButton(chosen: Bool) -> some View {
+        Button(chosen ? "Change verse" : "Choose your own") {
+            if readingPlans.isEmpty {
+                router.selectedTab = .study
+            } else {
+                showVersePicker = true
+            }
+        }
+        .buttonStyle(.selahTertiary)
     }
 
     // MARK: Today's reading
