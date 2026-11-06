@@ -102,6 +102,8 @@ struct StreakHero: View {
     let days: [StreakWeekCell]
     /// Streak freezes still unused this month.
     var freezesLeft: Int = Streaks.freezesPerMonth
+    /// Lit, off, frozen or thawed, for the art.
+    var moment: StreakMoment = .lit
     /// Bump this number to play the celebration.
     var celebration: Int = 0
 
@@ -129,7 +131,15 @@ struct StreakHero: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text("Best \(best)")
                     Text("\u{00B7}")
-                    SnowflakeIcon(size: 13, lineWidth: 1.4)
+                    if let badge = UIImage(named: "StreakSnowflake") {
+                        Image(uiImage: badge)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+                            .accessibilityHidden(true)
+                    } else {
+                        SnowflakeIcon(size: 13, lineWidth: 1.4)
+                    }
                     Text(freezesLeft == 1 ? "1 freeze left" : "\(freezesLeft) freezes left")
                 }
                 .font(.selahLabel)
@@ -167,9 +177,29 @@ struct StreakHero: View {
     /// A streak of 0 shows the grey flame with no glow or embers.
     private var lit: Bool { count > 0 }
 
+    /// The art for this streak and moment: the flame for reading, the lamp for services; lit, off, frozen (a freeze is
+    /// holding the streak) or thawed (today done right after a frozen day). Falls back to the plain flame until
+    /// Selah's art for a state is in the catalog.
+    private var artName: String? {
+        let symbol = kind == .service && UIImage(named: "StreakLamp") != nil ? "StreakLamp" : "StreakFlame"
+        let suffix: String
+        switch moment {
+        case .off: suffix = "Off"
+        case .lit: suffix = ""
+        case .frozen: suffix = "Frozen"
+        case .thawed: suffix = "Thaw"
+        }
+        if UIImage(named: symbol + suffix) != nil { return symbol + suffix }
+        let fallback = moment == .off ? symbol + "Off" : symbol
+        return UIImage(named: fallback) != nil ? fallback : nil
+    }
+
+    /// The warm glow and embers only for a burning flame (not when it's off or frozen).
+    private var glows: Bool { moment == .lit || moment == .thawed || (moment == .frozen && artName?.hasSuffix("Frozen") != true) }
+
     private var flameStack: some View {
         ZStack {
-            if lit {
+            if lit && glows {
                 Circle()
                     .fill(
                         RadialGradient(
@@ -193,7 +223,7 @@ struct StreakHero: View {
     /// The delivered flame artwork when the asset catalog has it, otherwise the drawn flame.
     @ViewBuilder
     private var flame: some View {
-        if let art = UIImage(named: lit ? "StreakFlame" : "StreakFlameOff") {
+        if let name = artName, let art = UIImage(named: name) {
             Image(uiImage: art)
                 .resizable()
                 .scaledToFit()
@@ -514,6 +544,7 @@ struct StreakSection: View {
             done: count.doneToday,
             days: weekCells,
             freezesLeft: count.freezesLeft,
+            moment: Streaks.moment(count),
             celebration: tick
         )
         .onAppear { sync() }

@@ -51,6 +51,20 @@ struct StreakCount: Equatable, Sendable {
     var freezesLeft: Int = Streaks.freezesPerMonth
     /// Missed days a freeze covered (start of day).
     var frozenDays: Set<Date> = []
+    /// The last day before today that counted (start of day), if any.
+    var lastDoneBeforeToday: Date?
+}
+
+/// What the streak art shows: the flame (reading) or lamp (services) in one of four states.
+enum StreakMoment: Equatable, Sendable {
+    /// No streak running.
+    case off
+    /// A streak is running.
+    case lit
+    /// A freeze is holding the streak and today isn't done yet.
+    case frozen
+    /// Today was done right after a frozen day: the ice breaks and the streak burns again.
+    case thawed
 }
 
 struct StreakSummary: Equatable, Sendable {
@@ -105,21 +119,24 @@ enum Streaks {
                 best: study.best,
                 doneToday: context.studyDays.contains(context.today),
                 freezesLeft: study.freezesLeft,
-                frozenDays: study.frozen
+                frozenDays: study.frozen,
+                lastDoneBeforeToday: study.lastDoneBeforeToday
             ),
             service: StreakCount(
                 current: service.current,
                 best: service.best,
                 doneToday: context.serviceDays.contains(context.today),
                 freezesLeft: service.freezesLeft,
-                frozenDays: service.frozen
+                frozenDays: service.frozen,
+                lastDoneBeforeToday: service.lastDoneBeforeToday
             ),
             overall: StreakCount(
                 current: overall.current,
                 best: overall.best,
                 doneToday: context.overallRule(context.today) == .done,
                 freezesLeft: overall.freezesLeft,
-                frozenDays: overall.frozen
+                frozenDays: overall.frozen,
+                lastDoneBeforeToday: overall.lastDoneBeforeToday
             )
         )
     }
@@ -166,6 +183,7 @@ enum Streaks {
         var best: Int
         var frozen: Set<Date>
         var freezesLeft: Int
+        var lastDoneBeforeToday: Date?
     }
 
     /// Walks from `start` to today. A missed day (not today, which is still open) uses one of that month's freezes
@@ -179,11 +197,13 @@ enum Streaks {
         var run = 0
         var best = 0
         var frozen: Set<Date> = []
+        var lastDoneBeforeToday: Date?
         var usedByMonth: [Int: Int] = [:]
         var day = start
         while day <= today {
             switch rule(day) {
             case .done:
+                if day != today { lastDoneBeforeToday = day }
                 run += 1
                 best = max(best, run)
             case .missed:
@@ -202,7 +222,19 @@ enum Streaks {
             day = calendar.startOfDay(for: next)
         }
         let left = freezesPerMonth - usedByMonth[monthKey(today, calendar: calendar), default: 0]
-        return PassResult(current: run, best: best, frozen: frozen, freezesLeft: left)
+        return PassResult(
+            current: run, best: best, frozen: frozen, freezesLeft: left, lastDoneBeforeToday: lastDoneBeforeToday
+        )
+    }
+
+    /// The art state for a streak. Works for services too: "the last time it counted" is the last meeting kept, so a
+    /// frozen meeting day shows as frozen until the next meeting is kept.
+    static func moment(_ count: StreakCount) -> StreakMoment {
+        guard count.current > 0 else { return .off }
+        guard let lastFrozen = count.frozenDays.max() else { return .lit }
+        let frozeSinceLastDone = lastFrozen > (count.lastDoneBeforeToday ?? .distantPast)
+        guard frozeSinceLastDone else { return .lit }
+        return count.doneToday ? .thawed : .frozen
     }
 
     private static func monthKey(_ day: Date, calendar: Calendar) -> Int {

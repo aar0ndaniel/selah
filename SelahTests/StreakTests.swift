@@ -90,6 +90,34 @@ struct StreakTests {
         #expect(back.study.freezesLeft == 2)
     }
 
+    // MARK: Art moments
+
+    @Test func streakArtFollowsTheFreeze() {
+        // Running and done yesterday: lit.
+        #expect(Streaks.moment(summary(StreakInput(studyDates: [day(16), day(17)])).study) == .lit)
+        // 17 missed and frozen, 18 not done yet: frozen.
+        #expect(Streaks.moment(summary(StreakInput(studyDates: [day(15), day(16)])).study) == .frozen)
+        // 17 frozen, 18 done: the ice breaks.
+        #expect(Streaks.moment(summary(StreakInput(studyDates: [day(15), day(16), day(18)])).study) == .thawed)
+        // The day after coming back: lit again.
+        let next = Streaks.summary(
+            StreakInput(studyDates: [day(15), day(16), day(18)]),
+            today: day(19, 20),
+            calendar: calendar
+        )
+        #expect(Streaks.moment(next.study) == .lit)
+        // No streak: off.
+        #expect(Streaks.moment(summary(StreakInput()).study) == .off)
+    }
+
+    @Test func serviceArtStaysFrozenUntilTheNextMeetingIsKept() {
+        // Meetings on Sundays and Tuesdays: 11 kept, 13 missed and frozen.
+        let waiting = summary(StreakInput(serviceDates: [day(11)], meetingWeekdays: sundayAndTuesday))
+        #expect(Streaks.moment(waiting.service) == .frozen)
+        let back = summary(StreakInput(serviceDates: [day(11), day(18)], meetingWeekdays: sundayAndTuesday))
+        #expect(Streaks.moment(back.service) == .thawed)
+    }
+
     @Test func studyBestIsTheLongestRun() {
         let dates = [10, 11, 12, 13, 17, 18].map { day($0) }
         let result = summary(StreakInput(studyDates: dates))
