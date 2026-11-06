@@ -230,6 +230,16 @@ struct WidgetWeekRow: View {
             Circle()
                 .fill(WidgetPalette.faint.opacity(0.04))
                 .frame(width: circle, height: circle)
+        case "frozen":
+            // A streak freeze covered this day: a soft grey disc with a small star of frost.
+            Circle()
+                .fill(WidgetPalette.faint.opacity(0.12))
+                .frame(width: circle, height: circle)
+                .overlay {
+                    Text("\u{2744}\u{FE0E}")
+                        .font(.system(size: 10))
+                        .foregroundStyle(WidgetPalette.faint.opacity(0.6))
+                }
         default:
             Circle()
                 .fill(WidgetPalette.faint.opacity(cell.isToday ? 0.12 : 0.06))

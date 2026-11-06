@@ -64,9 +64,10 @@ struct WidgetSnapshotTests {
         // Tomorrow: still alive, not done yet.
         #expect(days[1].current == 3)
         #expect(days[1].doneToday == false)
-        // The day after: tomorrow was missed, so the streak is over.
-        #expect(days[2].current == 0)
+        // The day after: tomorrow was missed, but a streak freeze holds it.
+        #expect(days[2].current == 3)
         #expect(days[2].best == 3)
+        #expect(days[2].week.contains { $0.state == "frozen" })
     }
 
     @Test func weekRowHasSevenCellsWithTodayMarked() {

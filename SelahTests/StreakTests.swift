@@ -40,17 +40,63 @@ struct StreakTests {
         #expect(result.study.doneToday == false)
     }
 
-    @Test func studyStreakBreaksOnAMissedDay() {
+    @Test func aMissedDayUsesAFreezeAndTheStreakHolds() {
+        // 17 October is missed: a freeze covers it, the streak stays at 2 (the frozen day doesn't add to it).
         let result = summary(StreakInput(studyDates: [day(15), day(16)]))
-        #expect(result.study.current == 0)
+        #expect(result.study.current == 2)
         #expect(result.study.best == 2)
+        #expect(result.study.freezesLeft == 4)
+        #expect(result.study.frozenDays == [calendar.startOfDay(for: day(17))])
+    }
+
+    @Test func comingBackAfterAFrozenDayCarriesOn() {
+        let result = summary(StreakInput(studyDates: [day(15), day(16), day(18)]))
+        #expect(result.study.current == 3)
+        #expect(result.study.freezesLeft == 4)
+    }
+
+    @Test func withNoFreezesLeftAMissResetsTheStreak() {
+        // 1 to 4 October read, then 12 days missed: 5 to 9 use the month's 5 freezes, 10 resets the streak to 0.
+        let dates = [1, 2, 3, 4, 17, 18].map { day($0) }
+        let result = summary(StreakInput(studyDates: dates))
+        #expect(result.study.current == 2)
+        #expect(result.study.best == 4)
+        #expect(result.study.freezesLeft == 0)
+        #expect(result.study.frozenDays.count == 5)
+    }
+
+    @Test func aMissWhileTheStreakIsZeroUsesNoFreeze() {
+        // A study day long ago starts the look-back; the misses after the reset don't spend freezes.
+        let result = summary(StreakInput(studyDates: [day(1), day(18)]))
+        #expect(result.study.current == 1)
+        #expect(result.study.frozenDays.count == 5)
+        #expect(result.study.freezesLeft == 0)
+    }
+
+    @Test func freezesRefillEachMonth() {
+        func date(_ month: Int, _ day: Int) -> Date {
+            calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: 12)) ?? Date()
+        }
+        // Read 1 to 24 September, then nothing from 25 September to 4 October.
+        // September's 5 freezes cover 25 to 29; 30 September resets the streak.
+        let september = (1...24).map { date(9, $0) }
+        let late = Streaks.summary(StreakInput(studyDates: september), today: date(10, 4), calendar: calendar)
+        #expect(late.study.current == 0)
+        // Read through 26 September, miss 27 September to 3 October, read on 4 October:
+        // 27 to 30 September use 4 of September's freezes, 1 to 3 October use 3 of October's.
+        let soon = (1...26).map { date(9, $0) } + [date(10, 4)]
+        let back = Streaks.summary(StreakInput(studyDates: soon), today: date(10, 4), calendar: calendar)
+        #expect(back.study.current == 27)
+        #expect(back.study.freezesLeft == 2)
     }
 
     @Test func studyBestIsTheLongestRun() {
         let dates = [10, 11, 12, 13, 17, 18].map { day($0) }
         let result = summary(StreakInput(studyDates: dates))
-        #expect(result.study.current == 2)
-        #expect(result.study.best == 4)
+        // 14 to 16 are frozen, so the run carries on: 4 + 2.
+        #expect(result.study.current == 6)
+        #expect(result.study.best == 6)
+        #expect(result.study.freezesLeft == 2)
     }
 
     @Test func severalEntriesOnOneDayCountOnce() {
@@ -84,11 +130,13 @@ struct StreakTests {
         #expect(result.service.doneToday == false)
     }
 
-    @Test func missedMeetingBreaksTheServiceStreak() {
+    @Test func missedMeetingUsesAServiceFreeze() {
+        // The Tuesday 13 meeting is missed: a freeze holds the streak.
         let input = StreakInput(serviceDates: [day(11), day(18)], meetingWeekdays: sundayAndTuesday)
         let result = summary(input)
-        #expect(result.service.current == 1)
-        #expect(result.service.best == 1)
+        #expect(result.service.current == 2)
+        #expect(result.service.best == 2)
+        #expect(result.service.freezesLeft == 4)
     }
 
     @Test func daysBetweenMeetingsAreSkippedAndExtraServicesDoNotCount() {
@@ -139,8 +187,9 @@ struct StreakTests {
             readingSpans: [ReadingSpan(start: day(14), end: nil)]
         )
         let result = summary(input)
-        #expect(result.overall.current == 2)
-        #expect(result.overall.best == 2)
+        // 16 is frozen, so the run carries on.
+        #expect(result.overall.current == 4)
+        #expect(result.overall.best == 4)
     }
 
     @Test func daysWithNothingDueNeitherBreakNorExtend() {
@@ -174,7 +223,8 @@ struct StreakTests {
         #expect(week[0].state == .done)
         #expect(week[0].studyCount == 2)
         #expect(week[1].state == .done)
-        #expect(week[2].state == .missed)
+        // Wednesday was missed while the streak was running: a freeze covered it.
+        #expect(week[2].state == .frozen)
         #expect(week[6].isToday)
         #expect(week[6].state == .pending)
     }

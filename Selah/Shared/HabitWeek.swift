@@ -158,6 +158,14 @@ struct HabitWeekCard: View {
             Circle()
                 .strokeBorder(Color.secondary.opacity(0.45), lineWidth: 1)
                 .frame(width: circle, height: circle)
+        case .frozen:
+            Circle()
+                .fill(Color.secondary.opacity(0.12))
+                .frame(width: circle, height: circle)
+                .overlay {
+                    SnowflakeIcon(size: circle * 0.5, lineWidth: 1.4)
+                        .foregroundStyle(.secondary)
+                }
         case .none:
             Circle()
                 .fill(Theme.accent.opacity(0.18))

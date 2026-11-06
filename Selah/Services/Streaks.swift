@@ -10,6 +10,10 @@ import Foundation
 //   Reading plan was active; a service is due on meeting days. Days with nothing due are skipped (they neither
 //   extend nor break the streak). Today with something still open does not break it.
 // - Best: the longest run found by the same rules over all the data.
+// - Freezes (owner, 6 Nov): everyone gets 5 a calendar month. A missed day while a streak is running uses one of that
+//   month's freezes: the streak holds (the frozen day doesn't add to it) and carries on when the user comes back.
+//   With no freezes left that month, a missed day resets the streak to 0. A miss while the streak is already 0 uses
+//   none. Each kind (study, service, overall) keeps its own count.
 
 /// The span of days a Reading plan counted as active. `end` nil means still reading.
 struct ReadingSpan: Equatable, Sendable {
@@ -43,6 +47,10 @@ struct StreakCount: Equatable, Sendable {
     var current: Int = 0
     var best: Int = 0
     var doneToday: Bool = false
+    /// Freezes still unused in today's month.
+    var freezesLeft: Int = Streaks.freezesPerMonth
+    /// Missed days a freeze covered (start of day).
+    var frozenDays: Set<Date> = []
 }
 
 struct StreakSummary: Equatable, Sendable {
@@ -58,6 +66,8 @@ enum WeekDayState: Equatable, Sendable {
     case pending
     /// A past day with something due that was not finished.
     case missed
+    /// A missed day covered by a streak freeze: the streak held.
+    case frozen
     /// Nothing due, or a day still to come.
     case none
 }
@@ -72,6 +82,8 @@ struct WeekDay: Equatable, Sendable {
 enum Streaks {
     /// Longest look-back, so the loop stays cheap for very old stores.
     static let maxLookbackDays = 800
+    /// Streak freezes each calendar month.
+    static let freezesPerMonth = 5
 
     private enum DayResult {
         case done, missed, skip
@@ -91,17 +103,23 @@ enum Streaks {
             study: StreakCount(
                 current: study.current,
                 best: study.best,
-                doneToday: context.studyDays.contains(context.today)
+                doneToday: context.studyDays.contains(context.today),
+                freezesLeft: study.freezesLeft,
+                frozenDays: study.frozen
             ),
             service: StreakCount(
                 current: service.current,
                 best: service.best,
-                doneToday: context.serviceDays.contains(context.today)
+                doneToday: context.serviceDays.contains(context.today),
+                freezesLeft: service.freezesLeft,
+                frozenDays: service.frozen
             ),
             overall: StreakCount(
                 current: overall.current,
                 best: overall.best,
-                doneToday: context.overallRule(context.today) == .done
+                doneToday: context.overallRule(context.today) == .done,
+                freezesLeft: overall.freezesLeft,
+                frozenDays: overall.frozen
             )
         )
     }
@@ -115,6 +133,7 @@ enum Streaks {
         let sinceMonday = (weekday + 5) % 7
         guard let monday = calendar.date(byAdding: .day, value: -sinceMonday, to: context.today) else { return [] }
 
+        let frozen = summary(input, today: today, calendar: calendar).overall.frozenDays
         var counts: [Date: Int] = [:]
         for date in input.studyDates {
             counts[calendar.startOfDay(for: date), default: 0] += 1
@@ -131,7 +150,7 @@ enum Streaks {
             } else {
                 switch context.overallRule(day) {
                 case .done: state = .done
-                case .missed: state = isToday ? .pending : .missed
+                case .missed: state = isToday ? .pending : (frozen.contains(day) ? .frozen : .missed)
                 case .skip: state = .none
                 }
             }
@@ -142,15 +161,25 @@ enum Streaks {
 
     // MARK: Forward pass
 
-    /// Walks from `start` to today. A missed day resets the run, except today, which is still open.
+    private struct PassResult {
+        var current: Int
+        var best: Int
+        var frozen: Set<Date>
+        var freezesLeft: Int
+    }
+
+    /// Walks from `start` to today. A missed day (not today, which is still open) uses one of that month's freezes
+    /// while a streak is running; with none left, it resets the run.
     private static func pass(
         from start: Date,
         to today: Date,
         calendar: Calendar,
         rule: (Date) -> DayResult
-    ) -> (current: Int, best: Int) {
+    ) -> PassResult {
         var run = 0
         var best = 0
+        var frozen: Set<Date> = []
+        var usedByMonth: [Int: Int] = [:]
         var day = start
         while day <= today {
             switch rule(day) {
@@ -158,14 +187,27 @@ enum Streaks {
                 run += 1
                 best = max(best, run)
             case .missed:
-                if day != today { run = 0 }
+                guard day != today else { break }
+                let month = monthKey(day, calendar: calendar)
+                if run > 0, usedByMonth[month, default: 0] < freezesPerMonth {
+                    usedByMonth[month, default: 0] += 1
+                    frozen.insert(day)
+                } else {
+                    run = 0
+                }
             case .skip:
                 break
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
             day = calendar.startOfDay(for: next)
         }
-        return (run, best)
+        let left = freezesPerMonth - usedByMonth[monthKey(today, calendar: calendar), default: 0]
+        return PassResult(current: run, best: best, frozen: frozen, freezesLeft: left)
+    }
+
+    private static func monthKey(_ day: Date, calendar: Calendar) -> Int {
+        let parts = calendar.dateComponents([.year, .month], from: day)
+        return (parts.year ?? 0) * 100 + (parts.month ?? 0)
     }
 
     // MARK: Context

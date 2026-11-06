@@ -100,6 +100,8 @@ struct StreakHero: View {
     let best: Int
     let done: Bool
     let days: [StreakWeekCell]
+    /// Streak freezes still unused this month.
+    var freezesLeft: Int = Streaks.freezesPerMonth
     /// Bump this number to play the celebration.
     var celebration: Int = 0
 
@@ -124,9 +126,14 @@ struct StreakHero: View {
                 Text("\(count == 1 ? "day" : "days") streak \u{00B7} \(kind.title)")
                     .font(.custom(SelahFontFamily.body, size: labelSize, relativeTo: .title3).weight(.semibold))
                     .foregroundStyle(colours.label)
-                Text("Best \(best)")
-                    .font(.selahLabel)
-                    .foregroundStyle(colours.faint.opacity(colorScheme == .dark ? 0.65 : 0.6))
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text("Best \(best)")
+                    Text("\u{00B7}")
+                    SnowflakeIcon(size: 13, lineWidth: 1.4)
+                    Text(freezesLeft == 1 ? "1 freeze left" : "\(freezesLeft) freezes left")
+                }
+                .font(.selahLabel)
+                .foregroundStyle(colours.faint.opacity(colorScheme == .dark ? 0.65 : 0.6))
             }
             .accessibilityHidden(true)
 
@@ -151,7 +158,7 @@ struct StreakHero: View {
                 .strokeBorder(colours.faint.opacity(0.06), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.title) streak, \(spokenDays), best \(best)")
+        .accessibilityLabel("\(kind.title) streak, \(spokenDays), best \(best), \(freezesLeft) streak freezes left this month")
         .accessibilityValue("\(done ? "Done today. " : "")This week: \(StreakWeekRow.summary(days))")
         .onChange(of: celebration) { _, _ in play() }
         .sensoryFeedback(.success, trigger: celebration)
@@ -412,6 +419,15 @@ struct StreakWeekRow: View {
             dayNumber(day)
                 .foregroundStyle(colours.faint.opacity(0.55))
                 .frame(width: circle, height: circle)
+        case .frozen:
+            // A freeze covered this day: a soft grey disc with a snowflake.
+            Circle()
+                .fill(colours.faint.opacity(0.1))
+                .frame(width: circle, height: circle)
+                .overlay {
+                    SnowflakeIcon(size: 15, lineWidth: 1.6)
+                        .foregroundStyle(colours.faint.opacity(0.7))
+                }
         case .none:
             Circle()
                 .fill(colours.faint.opacity(day.isToday ? 0.12 : 0.06))
@@ -427,6 +443,7 @@ struct StreakWeekRow: View {
             case .done: return "\(name) done"
             case .pending: return "\(name) today, not done yet"
             case .missed: return "\(name) missed"
+            case .frozen: return "\(name) missed, streak freeze used"
             case .none: return "\(name) nothing due"
             }
         }
@@ -496,6 +513,7 @@ struct StreakSection: View {
             best: max(count.best, count.current),
             done: count.doneToday,
             days: weekCells,
+            freezesLeft: count.freezesLeft,
             celebration: tick
         )
         .onAppear { sync() }

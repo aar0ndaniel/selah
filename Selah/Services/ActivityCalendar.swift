@@ -209,6 +209,12 @@ enum ActivityCalendar {
             (start: calendar.startOfDay(for: $0.start), end: $0.end.map { calendar.startOfDay(for: $0) })
         }
 
+        // Missed days a streak freeze covered show as frozen, not missed.
+        let summary = Streaks.summary(input, today: rawToday, calendar: calendar)
+        func mark(_ state: WeekDayState, _ day: Date, _ frozen: Set<Date>) -> WeekDayState {
+            state == .missed && frozen.contains(day) ? .frozen : state
+        }
+
         var result = HabitWeekStates(days: [], study: [], service: [], overall: [], todayIndex: nil)
         for offset in 0..<7 {
             let day = addDays(offset, to: start, calendar: calendar)
@@ -218,12 +224,12 @@ enum ActivityCalendar {
             let serviceDone = serviceDays.contains(day)
 
             result.days.append(day)
-            result.study.append(single(day: day, today: today, due: studyDue, done: studyDone))
-            result.service.append(single(day: day, today: today, due: serviceDue, done: serviceDone))
+            result.study.append(mark(single(day: day, today: today, due: studyDue, done: studyDone), day, summary.study.frozenDays))
+            result.service.append(mark(single(day: day, today: today, due: serviceDue, done: serviceDone), day, summary.service.frozenDays))
 
             let anyDue = studyDue || serviceDue
             let allDone = (!studyDue || studyDone) && (!serviceDue || serviceDone)
-            result.overall.append(single(day: day, today: today, due: anyDue, done: anyDue && allDone, requireDue: true))
+            result.overall.append(mark(single(day: day, today: today, due: anyDue, done: anyDue && allDone, requireDue: true), day, summary.overall.frozenDays))
             if day == today { result.todayIndex = offset }
         }
         return result

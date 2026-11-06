@@ -83,6 +83,7 @@ enum WidgetSnapshotBuilder {
         case .done: return "done"
         case .pending: return "pending"
         case .missed: return "missed"
+        case .frozen: return "frozen"
         case .none: return "none"
         }
     }
