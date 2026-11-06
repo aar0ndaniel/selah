@@ -121,7 +121,8 @@ struct ActivityCalendarTests {
     @Test func streakReusesTheStudyRules() {
         let today = date(2026, 10, 18)
         let dates = [date(2026, 10, 18), date(2026, 10, 17), date(2026, 10, 16), date(2026, 10, 12)]
-        #expect(ActivityCalendar.studyStreak(dates: dates, today: today, calendar: calendar) == 3)
+        // 13 to 15 are covered by streak freezes, so 12 and 16 to 18 join up: 4.
+        #expect(ActivityCalendar.studyStreak(dates: dates, today: today, calendar: calendar) == 4)
         #expect(ActivityCalendar.studyStreak(dates: [], today: today, calendar: calendar) == 0)
     }
 
