@@ -53,7 +53,7 @@ struct StreakWidgetView: View {
 
     private func small(_ streak: WidgetStreakDisplay) -> some View {
         VStack(spacing: 2) {
-            StreakArtwork(lit: streak.lit, mode: mode)
+            artwork(streak)
                 .frame(height: 72)
             number(streak.count, size: 30)
             label(streak)
@@ -68,7 +68,7 @@ struct StreakWidgetView: View {
     private func medium(_ streak: WidgetStreakDisplay) -> some View {
         HStack(spacing: 12) {
             VStack(spacing: 2) {
-                StreakArtwork(lit: streak.lit, mode: mode)
+                artwork(streak)
                     .frame(height: 72)
                 number(streak.count, size: 30)
                 label(streak)
@@ -106,6 +106,10 @@ struct StreakWidgetView: View {
     }
 
     // MARK: Pieces
+
+    private func artwork(_ streak: WidgetStreakDisplay) -> StreakArtwork {
+        StreakArtwork(lit: streak.lit, mode: mode, moment: streak.moment, service: streak.isService)
+    }
 
     private func number(_ count: Int, size: CGFloat) -> some View {
         Text("\(count)")
@@ -155,9 +159,18 @@ struct StreakWidgetView: View {
 struct StreakArtwork: View {
     let lit: Bool
     let mode: String
+    var moment: String?
+    var service = false
+
+    private var buddy: UIImage? {
+        if let moment {
+            return WidgetArt.streakBuddy(moment: moment, service: service, mode: mode)
+        }
+        return WidgetArt.streakBuddy(lit: lit, mode: mode)
+    }
 
     var body: some View {
-        if let buddy = WidgetArt.streakBuddy(lit: lit, mode: mode) {
+        if let buddy {
             art(buddy)
         } else {
             GeometryReader { geo in

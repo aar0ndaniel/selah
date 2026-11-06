@@ -15,6 +15,8 @@ struct WidgetStreakDay: Codable, Equatable, Sendable {
     var doneToday: Bool
     /// Monday to Sunday of that date's week.
     var week: [WidgetWeekCell]
+    /// The art state: "off", "lit", "frozen" or "thaw". Optional so older snapshots still decode.
+    var moment: String?
 }
 
 /// One cell of the M to S row. `state` is "done", "pending", "missed" or "none".
@@ -55,6 +57,10 @@ struct WidgetStreakDisplay: Equatable, Sendable {
     var best: Int
     var doneToday: Bool
     var week: [WidgetWeekCell]
+    /// "off", "lit", "frozen" or "thaw".
+    var moment: String = "lit"
+    /// The service streak shows the lamp; the study streak shows the flame.
+    var isService: Bool = false
 
     /// A streak of 0 shows the grey flame.
     var lit: Bool { count > 0 }
@@ -70,7 +76,9 @@ enum WidgetDisplay {
             count: day.current,
             best: max(day.best, day.current),
             doneToday: day.doneToday,
-            week: day.week
+            week: day.week,
+            moment: day.moment ?? (day.current > 0 ? "lit" : "off"),
+            isService: snapshot.streakKind == "service"
         )
     }
 

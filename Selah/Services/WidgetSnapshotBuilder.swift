@@ -67,8 +67,19 @@ enum WidgetSnapshotBuilder {
             current: count.current,
             best: max(count.best, count.current),
             doneToday: count.doneToday,
-            week: cells
+            week: cells,
+            moment: momentName(Streaks.moment(count))
         )
+    }
+
+    /// The art name part for a moment, as in "Streak-thaw-coral".
+    static func momentName(_ moment: StreakMoment) -> String {
+        switch moment {
+        case .off: return "off"
+        case .lit: return "lit"
+        case .frozen: return "frozen"
+        case .thawed: return "thaw"
+        }
     }
 
     /// The same passage all day, a different one each day.

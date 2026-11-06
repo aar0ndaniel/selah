@@ -127,6 +127,16 @@ enum WidgetArt {
         image("Streak-\(lit ? "lit" : "off")-\(mode)")
     }
 
+    /// Selah with the lamp (services) or the flame (study) for the moment: "off", "lit", "frozen" or "thaw". Falls back
+    /// to the flame art, then to plain lit or off.
+    static func streakBuddy(moment: String, service: Bool, mode: String) -> UIImage? {
+        let plain = moment == "off" ? "off" : "lit"
+        if service, let lamp = image("Service-\(moment)-\(mode)") ?? image("Service-\(plain)-\(mode)") {
+            return lamp
+        }
+        return image("Streak-\(moment)-\(mode)") ?? image("Streak-\(plain)-\(mode)")
+    }
+
     static func flame(lit: Bool) -> UIImage? {
         image(lit ? "StreakFlame" : "StreakFlameOff")
     }

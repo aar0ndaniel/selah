@@ -67,6 +67,10 @@ struct WidgetSnapshotTests {
         // The day after: tomorrow was missed, but a streak freeze holds it.
         #expect(days[2].current == 3)
         #expect(days[2].best == 3)
+        // The art follows: lit today and tomorrow, frozen once the freeze is holding.
+        #expect(days[0].moment == "lit")
+        #expect(days[1].moment == "lit")
+        #expect(days[2].moment == "frozen")
     }
 
     @Test func weekRowHasSevenCellsWithTodayMarked() {
